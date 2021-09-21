@@ -1,7 +1,13 @@
 go from facie to oriented cubie representation
 replace actions with action indexes in cube domain
 replace actions with action indexes and/or resulting permutations in macro database
-"system" test for macro database add rule: must match brute query result
-    rewrite to make sure each prototype has a persistent prefix chain beneath the wilds
-    remove verbose query after
+remove verbose query from md
+streamline md code
+prefix tree refs:
+    http://dx.doi.org/10.1109/GrC.2012.6468626
+    http://hanj.cs.illinois.edu/pdf/dami04_fptree.pdf
+    https://sigir.org/sigir2021/ (on AAAI shortlist)
+    https://arxiv.org/ftp/arxiv/papers/1007/1007.0085.pdf (mainly for refs)
+    https://www.kdd.org/kdd2021/ (on AAAI shortlist)
 
+DONE "system" test for macro database add rule: must match brute query result

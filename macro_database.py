@@ -1,8 +1,9 @@
 """
 invariants:
-- any node with multiple child nodes must be tame (no wild links)
+- any node with two or more distinct child nodes must be tame (no wild links)
 - all descendent rules of a tamed node must have wildcard disabled at that position
 - except for root, wild nodes never have None links, and all links point to same child node
+- any two distinct prototype prefixes must have distinct node paths in the prefix tree
 
 if you're adding a new rule, nobody matched prototype (early tame None leaf)
 if you're disabling a wildcard, someone matched it (wild node with non-None links)
@@ -15,31 +16,58 @@ that way, disabling wildcards for one rule does not break another rule
 import numpy as np
 
 class PrefixTreeNode:
-    def __init__(self, bound):
+    # def __init__(self, bound, wild=True, pval=None):
+    def __init__(self, bound, pval=None):
+        self.bound = bound
+        self.pval = pval
         self.rule = None
-        self.links = [None] * bound
-        self.wild = True
+        self.links = {}
+    
+        # self.rule = None
+        # self.links = [None] * bound
+        # self.wild = wild
+        # self.pval = pval # prototype value leading to this node
+
+    def is_wild(self):
+        child_ids = set(map(id, self.links.values()))
+        return len(self.links) == self.bound and len(child_ids) == 1
+
+    def tame(self):
+        self.links = {v:c for v,c in self.links.items() if c.pval == v}
+
     def __str__(self, prefix=""):
         if self.rule != None: return "%sr%d\n" % (prefix, self.rule)
-        if self.wild:
+        if self.is_wild():
             result = prefix + "*\n"
-            if self.links[-1] != None:
-                result += self.links[-1].__str__(prefix+" ")
+            result += self.links[0].__str__(prefix+" ")
         else:
             result = ""
-            p = " " if sum([node != None for node in self.links]) == 1 else "|"
-            for n,node in enumerate(self.links):
-                if node != None:
-                    result += prefix + "%d\n" % n
-                    result += node.__str__(prefix+p)
+            p = " " if len(self.links) == 1 else "|"
+            for v in range(self.bound):
+                if v in self.links:
+                    result += prefix + "%d\n" % v
+                    result += self.links[v].__str__(prefix+p)
         return result
+        # if self.rule != None: return "%sr%d\n" % (prefix, self.rule)
+        # if self.wild:
+        #     result = prefix + "*\n"
+        #     if self.links[-1] != None:
+        #         result += self.links[-1].__str__(prefix+" ")
+        # else:
+        #     result = ""
+        #     p = " " if sum([node != None for node in self.links]) == 1 else "|"
+        #     for n,node in enumerate(self.links):
+        #         if node != None:
+        #             result += prefix + "%d\n" % n
+        #             result += node.__str__(prefix+p)
+        # return result
     def rules(self):
         if self.rule != None: return [self.rule]
+        if self.is_wild(): return self.links[0].rules()
         result = []
-        for node in self.links:
-            if node != None:
-                result += node.rules()
-                if node.wild: break
+        for v in range(self.bound):
+            if v in self.links:
+                result += self.links[v].rules()
         return result
 
 class MacroDatabase:
@@ -56,47 +84,45 @@ class MacroDatabase:
 
     def query(self, state, verbose=False):
         node = self.root
-        for k in range(len(state)):
-            node = node.links[state[k]]
-            if verbose: print(k, state[k])
-            if node == None: return None
+        for k,v in enumerate(state):
+            if verbose: print(k, v)
+            if v not in node.links: return None
+            node = node.links[v]
         return node.rule
 
+    def tame(self, node, k):
+        node.tame()
+        for r in node.rules(): self.wildcard_masks[r,k] = False
+
     def add_rule(self, prototype, macro, cost):
-        wildcard_mask = np.empty(len(prototype), dtype=bool)
+        r = self.num_rules
+        self.prototypes[r] = prototype
+        self.costs[r] = cost
+        self.macros[r] = macro
+        self.num_rules += 1
 
         node = self.root
         for k,v in enumerate(prototype):
-            if node.links[v] == None:
-                bound = 0 if k+1 == len(prototype) else self.bounds[k+1]
-                node.links[v] = PrefixTreeNode(bound)
-                if node.wild: # True after first node of new branch
-                    for u in range(self.bounds[k]):
-                        node.links[u] = node.links[v]
-            wildcard_mask[k] = node.wild
+            child_bound = self.bounds[k+1] if k+1 < len(self.bounds) else 0
+            if len(node.links) == 0:
+                child_node = PrefixTreeNode(child_bound, pval=v)
+                node.links = {v: child_node for v in range(node.bound)}
+            else:                
+                if v not in node.links:
+                    node.links[v] = PrefixTreeNode(child_bound, pval=v)
+                elif node.links[v].pval != v:
+                    self.tame(node, k)
+                    node.links[v] = PrefixTreeNode(child_bound, pval=v)
+            self.wildcard_masks[r,k] = node.is_wild()
             node = node.links[v]
-        node.rule = self.num_rules
-
-        self.prototypes[self.num_rules] = prototype
-        self.wildcard_masks[self.num_rules] = wildcard_mask
-        self.costs[self.num_rules] = cost
-        self.macros[self.num_rules] = macro
-
-        self.num_rules += 1
+        node.rule = r
 
     def disable(self, r, w):
         # get node to be tamed
         node = self.root
-        for k in range(w):
-            node = node.links[self.prototypes[r,k]]
+        for k in range(w): node = node.links[self.prototypes[r,k]]
         # tame it if still wild
-        if node.wild:
-            for v in range(len(node.links)):
-                if v != self.prototypes[r,w]: node.links[v] = None
-            node.wild = False
-        # update wildcard masks
-        for rule in node.rules():
-            self.wildcard_masks[rule,w] = False
+        if node.is_wild(): self.tame(node, w)
 
 if __name__ == "__main__":
 
@@ -169,7 +195,6 @@ if __name__ == "__main__":
     for r in range(md.num_rules):    
         for w in range(len(state)):            
             if rng.uniform() < 0.1:
-                print("disabled")
                 md.disable(r, w)
 
     for r in range(md.num_rules):
@@ -183,5 +208,8 @@ if __name__ == "__main__":
             print("-"*24)
             print(md.root)
         assert result in brutes
+
+    print("-"*24)
+    print(md.root)
 
 
