@@ -1,0 +1,7 @@
+go from facie to oriented cubie representation
+replace actions with action indexes in cube domain
+replace actions with action indexes and/or resulting permutations in macro database
+"system" test for macro database add rule: must match brute query result
+    rewrite to make sure each prototype has a persistent prefix chain beneath the wilds
+    remove verbose query after
+

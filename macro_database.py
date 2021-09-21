@@ -5,7 +5,7 @@ invariants:
 - except for root, wild nodes never have None links, and all links point to same child node
 
 if you're adding a new rule, nobody matched prototype (early tame None leaf)
-if you're disabling a wildcard, someone matched it (wild node with non-None links
+if you're disabling a wildcard, someone matched it (wild node with non-None links)
 
 should never take some wild links and then fail unmatched if a different non-wild link would have matched
 all prototypes should have persistent trails with no wildcard links
@@ -54,10 +54,11 @@ class MacroDatabase:
         self.costs = np.empty(max_rules, dtype=int)
         self.macros = [None] * max_rules
 
-    def query(self, state):
+    def query(self, state, verbose=False):
         node = self.root
         for k in range(len(state)):
             node = node.links[state[k]]
+            if verbose: print(k, state[k])
             if node == None: return None
         return node.rule
 
@@ -69,7 +70,7 @@ class MacroDatabase:
             if node.links[v] == None:
                 bound = 0 if k+1 == len(prototype) else self.bounds[k+1]
                 node.links[v] = PrefixTreeNode(bound)
-                if node.wild:
+                if node.wild: # True after first node of new branch
                     for u in range(self.bounds[k]):
                         node.links[u] = node.links[v]
             wildcard_mask[k] = node.wild
@@ -88,10 +89,11 @@ class MacroDatabase:
         node = self.root
         for k in range(w):
             node = node.links[self.prototypes[r,k]]
-        # tame it in the prefix tree
-        for v in range(len(node.links)):
-            if v != self.prototypes[r,w]: node.links[v] = None
-        node.wild = False
+        # tame it if still wild
+        if node.wild:
+            for v in range(len(node.links)):
+                if v != self.prototypes[r,w]: node.links[v] = None
+            node.wild = False
         # update wildcard masks
         for rule in node.rules():
             self.wildcard_masks[rule,w] = False
@@ -126,12 +128,12 @@ if __name__ == "__main__":
     state = domain.perform((0,1,1), solved)
     md.add_rule(state, ((0,1,3)), 1)
 
+    print("-"*24)
+    print(md.root)
     assert md.query(solved) == 0
     assert md.query(state) == 1
     assert not (md.wildcard_masks[:md.num_rules] == True).all()
     assert not (md.wildcard_masks[:md.num_rules] == False).all()
-    print("-"*24)
-    print(md.root)
 
     state2 = domain.perform((0,1,2), solved)
     md.add_rule(state2, ((0,1,2)), 1)
@@ -143,7 +145,43 @@ if __name__ == "__main__":
     print("-"*24)
     print(md.root)
     
+    # simulate adding rules and check queries match after
+    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md.add_rule(solved, (), 0)
+    for w in range(len(solved)): md.disable(0, w)
 
-    
+    rng = np.random.default_rng()
+    for r in range(1, 10):
+        state = domain.random_state(20, rng)
+        md.add_rule(state, (), 0)
+
+    for r in range(md.num_rules):
+        state = md.prototypes[r]
+        result = md.query(state)
+        brutes = np.flatnonzero(((md.prototypes == state) | md.wildcard_masks).all(axis=1))
+        print(r, result, brutes)
+        if result not in brutes:
+            print("predisable")
+            print("-"*24)
+            print(md.root)
+        assert result in brutes
+
+    for r in range(md.num_rules):    
+        for w in range(len(state)):            
+            if rng.uniform() < 0.1:
+                print("disabled")
+                md.disable(r, w)
+
+    for r in range(md.num_rules):
+        state = md.prototypes[r]
+        result = md.query(state)
+        brutes = np.flatnonzero(((md.prototypes == state) | md.wildcard_masks).all(axis=1))
+        print(r, result, brutes)
+        if result not in brutes:
+            md.query(state, verbose=True)
+            print("postdisable")
+            print("-"*24)
+            print(md.root)
+        assert result in brutes
 
 
