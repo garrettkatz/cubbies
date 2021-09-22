@@ -1,5 +1,11 @@
 """
 invariants:
+- distinct prototype prefixes have distinct node in the prefix graph, regardless of wildcard matches
+- if a node has two or more distinct child nodes, all the node's links are tame
+
+implies that any node with wild links has exactly one child node,
+and all rules descending from node match without wildcards through the child prefix
+
 - any node with two or more distinct child nodes must be tame (no wild links)
 - all descendent rules of a tamed node must have wildcard disabled at that position
 - except for root, wild nodes never have None links, and all links point to same child node
