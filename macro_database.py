@@ -22,30 +22,34 @@ that way, disabling wildcards for one rule does not break another rule
 import numpy as np
 
 class PrefixTreeNode:
-    def __init__(self, bound, value=None):
-        self.bound = bound
-        self.value = value
-        self.rule = None
-        self.links = {}
+    def __init__(self, bound, value=None, added=0):
+        self.bound = bound # maximum number of outgoing links
+        self.value = value # value of incoming link
+        self.added = added # integer timestamp when node is added
+        self.tamed = np.iinfo(int).max # integer timestamp when node is tamed
+        self.rule = None # for leaf nodes, the associated rule
+        self.links = {} # links[v] = child node for value v
     
     def is_wild(self):
         child_ids = set(map(id, self.links.values()))
         return len(self.links) == self.bound and len(child_ids) == 1
 
-    def tame(self):
+    def tame(self, tamed=0):
         self.links = {value:node for value, node in self.links.items() if node.value == value}
+        self.tamed = tamed
 
     def __str__(self, prefix=""):
-        if self.rule != None: return "%sr%d\n" % (prefix, self.rule)
+        tamed = "" if self.tamed == np.iinfo(int).max else str(self.tamed)
+        if self.rule != None: return "%sr%d [%d~>%s]\n" % (prefix, self.rule, self.added, tamed)
         if self.is_wild():
-            result = prefix + "*\n"
+            result = prefix + "* [%d~>%s]\n" % (self.added, tamed)
             result += self.links[0].__str__(prefix+" ")
         else:
             result = ""
             p = " " if len(self.links) == 1 else "|"
             for v in range(self.bound):
                 if v in self.links:
-                    result += prefix + "%d\n" % v
+                    result += prefix + "%d [%d~>%s]\n" % (v, self.added, tamed)
                     result += self.links[v].__str__(prefix+p)
         return result
 
@@ -57,6 +61,21 @@ class PrefixTreeNode:
             if v in self.links:
                 result += self.links[v].rules()
         return result
+
+    def rewind(self, i):
+
+        # Rewind current node and links
+        self.links = {v: node for v, node in self.links.items() if node.added <= i}
+        if self.tamed > i and len(self.links) > 0: # should imply len == 1
+            _, node = self.links.popitem()
+            for v in range(self.bound): self.links[v] = node
+            self.tamed = np.iinfo(int).max
+
+        # Recurse on children
+        if self.is_wild():
+            self.links[0].rewind(i)
+        else:
+            for child_node in self.links.values(): child_node.rewind(i)
 
 class MacroDatabase:
     def __init__(self, max_rules, bounds):
@@ -70,6 +89,9 @@ class MacroDatabase:
         self.costs = np.empty(max_rules, dtype=int)
         self.macros = [None] * max_rules
 
+        self.added = np.ones(max_rules, dtype=int) * np.iinfo(int).max
+        self.tamed = np.ones((max_rules, len(bounds)), dtype=int) * np.iinfo(int).max
+
     def query(self, state):
         node = self.root
         for k,v in enumerate(state):
@@ -77,37 +99,47 @@ class MacroDatabase:
             node = node.links[v]
         return node.rule
 
-    def tame(self, node, k):
-        node.tame()
-        for r in node.rules(): self.wildcards[r,k] = False
+    def tame(self, node, w, tamed=0):
+        node.tame(tamed)
+        for r in node.rules():
+            self.wildcards[r,w] = False
+            self.tamed[r,w] = tamed
 
-    def add_rule(self, prototype, macro, cost):
+    def add_rule(self, prototype, macro, cost, added=0):
         r = self.num_rules
         self.prototypes[r] = prototype
         self.costs[r] = cost
         self.macros[r] = macro
+        self.added[r] = added
 
         node = self.root
-        for k,v in enumerate(prototype):
+        for k, value in enumerate(prototype):
             child_bound = self.bounds[k+1] if k+1 < len(self.bounds) else 0
             if len(node.links) == 0:
-                child_node = PrefixTreeNode(child_bound, value=v)
+                child_node = PrefixTreeNode(child_bound, value, added)
                 node.links = {v: child_node for v in range(node.bound)}
-            elif v not in node.links:
-                node.links[v] = PrefixTreeNode(child_bound, value=v)
-            elif node.links[v].value != v:
-                self.tame(node, k)
-                node.links[v] = PrefixTreeNode(child_bound, value=v)
+            elif value not in node.links:
+                node.links[value] = PrefixTreeNode(child_bound, value, added)
+            elif node.links[value].value != value:
+                self.tame(node, k, tamed=added)
+                node.links[value] = PrefixTreeNode(child_bound, value, added)
             self.wildcards[r,k] = node.is_wild()
-            node = node.links[v]
+            node = node.links[value]
         node.rule = r
 
         self.num_rules += 1
 
-    def disable(self, r, w):
+    def disable(self, r, w, tamed=0):
         node = self.root
         for k in range(w): node = node.links[self.prototypes[r,k]]
-        if node.is_wild(): self.tame(node, w)
+        if node.is_wild(): self.tame(node, w, tamed)
+
+    def rewind(self, i):
+        self.root.rewind(i)
+        self.num_rules = np.argmax(self.added > i)
+        self.added[self.num_rules:] = np.iinfo(int).max        
+        self.wildcards = self.tamed > i
+        self.tamed[self.wildcards] = np.iinfo(int).max
 
 if __name__ == "__main__":
 
@@ -196,6 +228,48 @@ if __name__ == "__main__":
     print("-"*24)
     print(md.root)
 
+    # test rewinding
+    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md.add_rule(prototype=solved, macro=(), cost=0, added=0)
+    for w in range(len(solved)): md.disable(0, w, tamed=0)
+
+    rng = np.random.default_rng()
+    for r in range(1, 5):
+        state = domain.random_state(20, rng)
+        md.add_rule(prototype=state, macro=(), cost=0, added=r)
+        md.disable(rng.integers(r, endpoint=True), rng.integers(len(state)), tamed=r)
+
+    for r in range(md.num_rules):
+        state = md.prototypes[r]
+        result = md.query(state)
+        brutes = np.flatnonzero(((md.prototypes == state) | md.wildcards).all(axis=1))
+        if result not in brutes:
+            print("prerewind")
+            print("-"*24)
+            print(md.root)
+        assert result in brutes
+
+    print("prerewind")
+    print("-"*24)
+    print(md.root)
+
+    md.rewind(3)
+    md.rewind(2)
+    for r in range(md.num_rules):
+        state = md.prototypes[r]
+        result = md.query(state)
+        brutes = np.flatnonzero(((md.prototypes == state) | md.wildcards).all(axis=1))
+        if result not in brutes:
+            print("postrewind")
+            print("-"*24)
+            print(md.root)
+        assert result in brutes
+
+    print("postrewind")
+    print("-"*24)
+    print(md.root)
+
+    # compare timing of prefix and brute queries
     rule_count = 5000
 
     md = MacroDatabase(max_rules=rule_count, bounds=(7,)*len(solved))
