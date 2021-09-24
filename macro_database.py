@@ -62,6 +62,17 @@ class PrefixTreeNode:
                 result += self.links[v].rules()
         return result
 
+    def copy(self):
+        node = PrefixTreeNode(self.bound, self.value, self.added)
+        node.tamed = self.tamed
+        node.rule = self.rule
+        if self.is_wild():
+            child_node = self.links[0].copy()
+            node.links = {v: child_node for v in range(self.bound)}
+        else:
+            node.links = {v: child_node.copy() for v, child_node in self.links.items()}
+        return node
+
     def rewind(self, i):
 
         # Rewind current node and links
@@ -80,6 +91,7 @@ class PrefixTreeNode:
 class MacroDatabase:
     def __init__(self, max_rules, bounds):
 
+        self.max_rules = max_rules
         self.num_rules = 0
         self.bounds = tuple(bounds)
         self.root = PrefixTreeNode(bounds[0])
@@ -133,6 +145,21 @@ class MacroDatabase:
         node = self.root
         for k in range(w): node = node.links[self.prototypes[r,k]]
         if node.is_wild(): self.tame(node, w, tamed)
+
+    def copy(self):
+        db = MacroDatabase(self.max_rules, self.bounds)
+        db.num_rules = self.num_rules
+        db.root = self.root.copy()
+
+        db.prototypes = self.prototypes.copy()
+        db.wildcards = self.wildcards.copy()
+        db.costs = self.costs.copy()
+        db.macros = list(self.macros)
+
+        db.added = self.added.copy()
+        db.tamed = self.tamed.copy()
+        
+        return db
 
     def rewind(self, i):
         self.root.rewind(i)
@@ -269,8 +296,45 @@ if __name__ == "__main__":
     print("-"*24)
     print(md.root)
 
+    # test copy
+    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md.add_rule(prototype=solved, macro=(), cost=0, added=0)
+    for w in range(len(solved)): md.disable(0, w, tamed=0)
+
+    rng = np.random.default_rng()
+    num_rules = 4
+    states = []
+    for r in range(1, num_rules-1):
+        state = domain.random_state(20, rng)
+        md.add_rule(prototype=state, macro=(), cost=0, added=r)
+        md.disable(rng.integers(r, endpoint=True), rng.integers(len(state)), tamed=r)
+        states.append(state)
+
+    md2 = md.copy()
+    state = domain.random_state(20, rng)
+    md2.add_rule(prototype=state, macro=(), cost=0, added=num_rules-1)
+    for r in range(md.num_rules):
+        for w in range(len(state)):
+            md.disable(r, w, tamed=num_rules)
+
+    print("orig")
+    print("-"*24)
+    print(md.root)
+    print("copy")
+    print("-"*24)
+    print(md2.root)
+
+    assert md.num_rules + 1 == md2.num_rules
+    assert md.wildcards[:md.num_rules].sum() == 0
+    assert md2.wildcards[:md.num_rules].sum() > 0
+    assert md.query(state) == None
+    assert md2.query(state) != None
+    for state in states:
+        assert md.query(state) != None
+        assert md2.query(state) != None
+
     # compare timing of prefix and brute queries
-    rule_count = 5000
+    rule_count = 1000
 
     md = MacroDatabase(max_rules=rule_count, bounds=(7,)*len(solved))
     md.add_rule(solved, (), 0)
