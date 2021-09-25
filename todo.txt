@@ -1,7 +1,8 @@
-cube-specific subclass of macro database
-    superclass now does not have macros or costs, just patterns and wildcards
-    include permutation resulting from each macro, use it to apply rules quickly
-    init function that automatically starts with tame solved state, and automatically sets bounds
+split macro db from prefix functionality
+    don't subclass, violates LSP and copy does not play well with inheritance
+    prefix db does not have macros or costs, just patterns and wildcards
+    macro db includes macros, costs, and permutations for each macro to apply it quickly
+    macro db init automatically sets bounds, holds refs to prefix db and to domain
 profile full ftb again with prefix db
 new ftw:
     try multiple trails from each fork-point, including trail root
