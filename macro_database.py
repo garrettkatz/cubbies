@@ -89,20 +89,22 @@ class PrefixTreeNode:
             for child_node in self.links.values(): child_node.rewind(i)
 
 class MacroDatabase:
-    def __init__(self, max_rules, bounds):
+    def __init__(self, domain, max_rules):
 
+        self.domain = domain
         self.max_rules = max_rules
         self.num_rules = 0
-        self.bounds = tuple(bounds)
-        self.root = PrefixTreeNode(bounds[0])
+        self.bounds = (7,) * domain.state_size()
+        self.root = PrefixTreeNode(self.bounds[0])
 
-        self.prototypes = np.empty((max_rules, len(bounds)), dtype=int)
-        self.wildcards = np.empty((max_rules, len(bounds)), dtype=bool)
+        self.prototypes = np.empty((max_rules, domain.state_size()), dtype=int)
+        self.wildcards = np.empty((max_rules, domain.state_size()), dtype=bool)
         self.costs = np.empty(max_rules, dtype=int)
         self.macros = [None] * max_rules
+        self.permutations = np.empty((max_rules, domain.state_size()), dtype=int)
 
         self.added = np.ones(max_rules, dtype=int) * np.iinfo(int).max
-        self.tamed = np.ones((max_rules, len(bounds)), dtype=int) * np.iinfo(int).max
+        self.tamed = np.ones((max_rules, domain.state_size()), dtype=int) * np.iinfo(int).max
 
     def query(self, state):
         node = self.root
@@ -122,6 +124,7 @@ class MacroDatabase:
         self.prototypes[r] = prototype
         self.costs[r] = cost
         self.macros[r] = macro
+        self.permutations[r] = self.domain.execute(macro, np.arange(self.domain.state_size()))
         self.added[r] = added
 
         node = self.root
@@ -146,8 +149,11 @@ class MacroDatabase:
         for k in range(w): node = node.links[self.prototypes[r,k]]
         if node.is_wild(): self.tame(node, w, tamed)
 
+    def apply_rule(self, r, state):
+        return state[self.permutations[r]].copy()
+
     def copy(self):
-        db = MacroDatabase(self.max_rules, self.bounds)
+        db = MacroDatabase(self.domain, self.max_rules)
         db.num_rules = self.num_rules
         db.root = self.root.copy()
 
@@ -155,6 +161,7 @@ class MacroDatabase:
         db.wildcards = self.wildcards.copy()
         db.costs = self.costs.copy()
         db.macros = list(self.macros)
+        db.permutations = self.permutations.copy()
 
         db.added = self.added.copy()
         db.tamed = self.tamed.copy()
@@ -175,7 +182,7 @@ if __name__ == "__main__":
     domain = CubeDomain(2)
     solved = domain.solved_state()
 
-    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md = MacroDatabase(domain, max_rules=10)
     
     result = md.query(solved)
     assert result == None
@@ -196,7 +203,7 @@ if __name__ == "__main__":
     print(md.root)
 
     state = domain.perform((0,1,1), solved)
-    md.add_rule(state, ((0,1,3)), 1)
+    md.add_rule(state, ((0,1,3),), 1)
 
     print("-"*24)
     print(md.root)
@@ -206,17 +213,17 @@ if __name__ == "__main__":
     assert not (md.wildcards[:md.num_rules] == False).all()
 
     state2 = domain.perform((0,1,2), solved)
-    md.add_rule(state2, ((0,1,2)), 1)
+    md.add_rule(state2, ((0,1,2),), 1)
     print("-"*24)
     print(md.root)
 
     state3 = domain.perform((1,1,1), solved)
-    md.add_rule(state3, ((1,1,3)), 1)
+    md.add_rule(state3, ((1,1,3),), 1)
     print("-"*24)
     print(md.root)
     
     # simulate adding rules and check queries match after
-    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md = MacroDatabase(domain, max_rules=10)
     md.add_rule(solved, (), 0)
     for w in range(len(solved)): md.disable(0, w)
 
@@ -256,7 +263,7 @@ if __name__ == "__main__":
     print(md.root)
 
     # test rewinding
-    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md = MacroDatabase(domain, max_rules=10)
     md.add_rule(prototype=solved, macro=(), cost=0, added=0)
     for w in range(len(solved)): md.disable(0, w, tamed=0)
 
@@ -297,7 +304,7 @@ if __name__ == "__main__":
     print(md.root)
 
     # test copy
-    md = MacroDatabase(max_rules=10, bounds=(7,)*len(solved))
+    md = MacroDatabase(domain, max_rules=10)
     md.add_rule(prototype=solved, macro=(), cost=0, added=0)
     for w in range(len(solved)): md.disable(0, w, tamed=0)
 
@@ -333,10 +340,28 @@ if __name__ == "__main__":
         assert md.query(state) != None
         assert md2.query(state) != None
 
+    # test macro permutations
+    md = MacroDatabase(domain, max_rules=1)
+    state = domain.perform((0, 1, 1), solved)
+    actions = ((1, 1, 1), (2, 1, 1))
+    md.add_rule(prototype=solved, macro=actions, cost=0, added=0)
+    for w in range(len(solved)):
+        if state[w] == solved[w]: md.disable(0, w, tamed=0)
+
+    print("one rule perm")
+    print("-"*24)
+    print(md.root)
+
+    r = md.query(state)
+    assert r == 0
+    new_state = md.apply_rule(r, state)
+    for action in actions: state = domain.perform(action, state)
+    assert (state == new_state).all()
+
     # compare timing of prefix and brute queries
     rule_count = 1000
 
-    md = MacroDatabase(max_rules=rule_count, bounds=(7,)*len(solved))
+    md = MacroDatabase(domain, max_rules=rule_count)
     md.add_rule(solved, (), 0)
     for w in range(len(solved)): md.disable(0, w)
 
