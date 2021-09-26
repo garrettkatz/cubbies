@@ -1,11 +1,10 @@
 import numpy as np
 
 class Algorithm:
-    def __init__(self, domain, bfs_tree, max_depth, max_actions, color_neutral=True):
+    def __init__(self, domain, bfs_tree, max_depth, color_neutral=True):
         self.domain = domain
         self.bfs_tree = bfs_tree
         self.max_depth = max_depth
-        self.max_actions = max_actions
         self.color_neutral = color_neutral
 
     def macro_search(self, macro_database, state):
@@ -40,7 +39,7 @@ class Algorithm:
         # Failure if no path to macro found
         return False
     
-    def run(self, macro_database, state):
+    def run(self, max_actions, macro_database, state):
         # returns solved, plan, rule_indices, triggerers
         # solved: True if path to solved state was found, False otherwise
         # plan: [...,(actions, sym index, macro),...] a sequence of macro_search results
@@ -66,12 +65,10 @@ class Algorithm:
     
             # Fail if max actions exceeded
             num_actions += len(actions) + len(macro)
-            # num_actions += max(len(actions) + len(macro), 1) # make sure count always increases
             if num_actions > max_actions: return False, plan, rules, triggerers
             
             # Terminate once solved
             if self.domain.is_solved_in(state): return True, plan, rules, triggerers
-
 
 if __name__ == "__main__":
 
@@ -81,65 +78,65 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    # #### test macro_search
-    # from cube import CubeDomain
-    # domain = CubeDomain(3)
+    #### test macro_search
+    from cube import CubeDomain
+    domain = CubeDomain(3)
 
-    # from tree import SearchTree
-    # bfs_tree = SearchTree(domain, max_depth)
+    from tree import SearchTree
+    bfs_tree = SearchTree(domain, max_depth)
 
-    # from macro_database import MacroDatabase
-    # patterns = domain.perform((0,1,1), domain.solved_state()).reshape(1,-1)
-    # wildcards = np.zeros(patterns.shape, dtype=bool)
-    # macros = [((0,1,3),)]
-    # costs = [0]
-    # mdb = MacroDatabase(len(macros), bounds = (7,)*patterns.shape[1])
-    # for r in range(len(macros)):
-    #     mdb.add_rule(patterns[r], macros[r], costs[r])
-    #     for w in range(len(wildcards[r])): mdb.disable(r, w)
+    from macro_database import MacroDatabase
+    patterns = domain.perform((0,1,1), domain.solved_state()).reshape(1,-1)
+    wildcards = np.zeros(patterns.shape, dtype=bool)
+    macros = [((0,1,3),)]
+    costs = [0]
+    mdb = MacroDatabase(domain, len(macros))
+    for r in range(len(macros)):
+        mdb.add_rule(patterns[r], macros[r], costs[r])
+        for w in range(len(wildcards[r])): mdb.disable(r, w)
 
-    # sym = 4 if color_neutral else 0
-    # actions = ((1,1,1),)
+    sym = 4 if color_neutral else 0
+    actions = ((1,1,1),)
 
-    # solved = domain.solved_state()
-    # state = domain.execute(domain.reverse(macros[0]), solved)
-    # new_state = domain.color_neutral_to(state)[sym,:]
-    # invsym = domain.inverse_symmetry_of(sym)
-    # state = domain.execute(domain.reverse(actions), new_state)
+    solved = domain.solved_state()
+    state = domain.execute(domain.reverse(macros[0]), solved)
+    new_state = domain.color_neutral_to(state)[sym,:]
+    invsym = domain.inverse_symmetry_of(sym)
+    state = domain.execute(domain.reverse(actions), new_state)
 
-    # alg = Algorithm(domain, bfs_tree, max_depth, max_actions, color_neutral)
-    # result = alg.macro_search(mdb, state)
+    alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+    result = alg.macro_search(mdb, state)
 
-    # print(result)
-    # assert result != False
+    print(result)
+    assert result != False
 
-    # recolorer, path, rule, macro, triggerer, new_state = result
-    # recolored = domain.color_neutral_to(state)[recolorer]
+    recolorer, path, rule, macro, triggerer, new_state = result
+    recolored = domain.color_neutral_to(state)[recolorer]
 
-    # import matplotlib.pyplot as pt
-    # domain.render_subplot(1, 6, 1, state)
-    # pt.title("state")
-    # domain.render_subplot(1, 6, 2, recolored)
-    # pt.title("recolored")
-    # domain.render_subplot(1, 6, 3, triggerer)
-    # pt.title("triggerer")
-    # domain.render_subplot(1, 6, 4, patterns[0])
-    # pt.title("patterns[0]")
-    # domain.render_subplot(1, 6, 5, new_state)
-    # pt.title("new_state")
-    # domain.render_subplot(1, 6, 6, solved)
-    # pt.title("solved")
-    # pt.show()
+    import matplotlib.pyplot as pt
+    domain.render_subplot(1, 6, 1, state)
+    pt.title("state")
+    domain.render_subplot(1, 6, 2, recolored)
+    pt.title("recolored")
+    domain.render_subplot(1, 6, 3, triggerer)
+    pt.title("triggerer")
+    domain.render_subplot(1, 6, 4, patterns[0])
+    pt.title("patterns[0]")
+    domain.render_subplot(1, 6, 5, new_state)
+    pt.title("new_state")
+    domain.render_subplot(1, 6, 6, solved)
+    pt.title("solved")
+    pt.show()
 
-    # print(path)
-    # print(actions)
-    # assert path == actions
-    # print(recolorer, invsym)
-    # assert recolorer == invsym
-    # print(macro)
-    # assert macro == macros[0]
-    # print(new_state)
-    # assert (new_state == domain.solved_state()).all()
+    print(path)
+    print(actions)
+    assert path == actions
+    print(recolorer, invsym)
+    assert recolorer == invsym
+    print(macro)
+    assert macro == macros[0]
+    print(new_state)
+    assert (new_state == domain.solved_state()).all()
 
     #### test run
     from cube import CubeDomain
@@ -160,7 +157,7 @@ if __name__ == "__main__":
         ((0,1,3),(1,1,3),(2,1,3)),
     )
     costs = [0, 0]
-    mdb = MacroDatabase(len(macros), bounds = (7,)*patterns.shape[1])
+    mdb = MacroDatabase(domain, len(macros))
     for r in range(len(macros)):
         mdb.add_rule(patterns[r], macros[r], costs[r])
         for w in range(patterns.shape[1]): mdb.disable(r, w)
@@ -176,8 +173,8 @@ if __name__ == "__main__":
     state = domain.color_neutral_to(state)[sym]
     invsym = domain.inverse_symmetry_of(sym)
 
-    alg = Algorithm(domain, bfs_tree, max_depth, max_actions, color_neutral)
-    solved, plan, rules, triggerers = alg.run(mdb, state)
+    alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+    solved, plan, rules, triggerers = alg.run(max_actions, mdb, state)
     
     assert solved
     s, path, macro = plan[0]
