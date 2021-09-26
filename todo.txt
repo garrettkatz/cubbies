@@ -1,4 +1,6 @@
-new constructor class based on relaxed_construction
+leverage prefix tree in cons.make_tau to avoid brute prototype comparison
+    prototypes should be distinct, so only 0 or 1 prototype should match s[t]
+add rcons to new constructor class
     bring in features of trail (ema, max incs, etc)
 split macro db from prefix functionality
     don't subclass, violates LSP and copy does not play well with inheritance

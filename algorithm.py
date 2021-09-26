@@ -7,7 +7,7 @@ class Algorithm:
         self.max_depth = max_depth
         self.color_neutral = color_neutral
 
-    def macro_search(self, macro_database, state):
+    def rule_search(self, macro_database, state):
         # returns result = (recolor index, actions, rule index, macro, triggering state, new_state)
         # or result = False if there is no path to a macro or solved state
     
@@ -42,7 +42,7 @@ class Algorithm:
     def run(self, max_actions, macro_database, state):
         # returns solved, plan, rule_indices, triggerers
         # solved: True if path to solved state was found, False otherwise
-        # plan: [...,(actions, sym index, macro),...] a sequence of macro_search results
+        # plan: [...,(actions, sym index, macro),...] a sequence of rule_search results
         
         # Form plan one macro at a time
         plan = []
@@ -52,7 +52,7 @@ class Algorithm:
         while True:
     
             # Search for next macro
-            result = self.macro_search(macro_database, state)
+            result = self.rule_search(macro_database, state)
             
             # Return failure if none found
             if result is False: return False, plan, rules, triggerers
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    #### test macro_search
+    #### test rule_search
     from cube import CubeDomain
     domain = CubeDomain(3)
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     state = domain.execute(domain.reverse(actions), new_state)
 
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-    result = alg.macro_search(mdb, state)
+    result = alg.rule_search(mdb, state)
 
     print(result)
     assert result != False
