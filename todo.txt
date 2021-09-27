@@ -1,7 +1,4 @@
-leverage prefix tree in cons.make_tau to avoid brute prototype comparison
-    prototypes should be distinct, so only 0 or 1 prototype should match s[t]
-add rcons to new constructor class
-    bring in features of trail (ema, max incs, etc)
+fix ema in constructor, two phi symbols are treated as same character
 split macro db from prefix functionality
     don't subclass, violates LSP and copy does not play well with inheritance
     macro db init holds ref to prefix db
@@ -13,7 +10,6 @@ new ftw:
     move fork-points forward rather than from trail end?
     coordinate with full frontier to save any trail that is non-dominated, regardless of current scalarization
 go from facie to oriented cubie representation
-add permutation result of macros to macro database, maybe in cube-specific subclass (also with init solved function)
 replace actions with action indexes in cube domain
 replace actions with action indexes in macro database
 prefix tree refs:
