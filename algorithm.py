@@ -10,7 +10,7 @@ class Algorithm:
     def rule_search(self, macro_database, state):
         # returns result = (recolor index, actions, rule index, macro, triggering state, new_state)
         # or result = False if there is no path to a macro or solved state
-    
+
         paths = self.bfs_tree.paths(up_to_depth=self.max_depth)
     
         if self.color_neutral:

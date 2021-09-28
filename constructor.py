@@ -1,13 +1,14 @@
 import numpy as np
+import matplotlib.pyplot as pt
 
 class Constructor:
-    def __init__(self, alg, max_actions, scramble, γ, φ_threshold):
+    def __init__(self, alg, max_actions, scramble, γ, ema_threshold):
         self.alg = alg
         self.max_actions = max_actions
         self.scramble = scramble
         self.γ = γ
-        self.φ_threshold = φ_threshold
-        self.φ_history = [0.]
+        self.ema_threshold = ema_threshold
+        self.ema_history = [0.]
         self.num_incs = 0
 
     def make_ω(self, mdb, r_, s_):
@@ -18,8 +19,8 @@ class Constructor:
     def make_τ(self, mdb, s):
         queries = [mdb.query(s[t]) for t in range(len(s))]
         return [(t,r)
-            for t,r in enumerate(queries)
-            if r != None and self.alg.max_depth + t + mdb.costs[r] <= self.max_actions]
+            for (t,r) in enumerate(queries)
+            if r != None and (s[t] == mdb.prototypes[r]).all() and self.alg.max_depth + t + mdb.costs[r] <= self.max_actions]
 
     def incorporate(self, mdb, s, a):
         ϕ = True
@@ -47,21 +48,20 @@ class Constructor:
         return ϕ
 
     def run(self, mdb):
-        φ = self.φ_history[self.num_incs]
-        while φ < self.φ_threshold:
+        ema = self.ema_history[self.num_incs]
+        while ema < self.ema_threshold:
             s, a = self.scramble(self.max_actions - self.alg.max_depth)
             ϕ = self.incorporate(mdb, s, a)
-            # if ϕ: print(f"{self.num_incs}: φ = {φ}")
-            print(f"{self.num_incs}: φ = {φ}")
-            φ = self.γ * φ + (1. - self.γ) * int(ϕ)
-            self.φ_history.append(φ)
+            if ϕ: print(f"{self.num_incs}: ema = {ema}")
+            ema = self.γ * ema + (1. - self.γ) * int(ϕ)
+            self.ema_history.append(ema)
 
 if __name__ == "__main__":
 
     import numpy as np
 
     γ = 0.9
-    φ_threshold = 0.9999
+    ema_threshold = 0.9999
 
     max_depth = 1
     max_actions = 20
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
 
     scramble = lambda _: None # placeholder
-    cons = Constructor(alg, max_actions, scramble, γ, φ_threshold)
+    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
     ϕ = cons.incorporate(mdb, [solved], [])
     assert ϕ
     assert mdb.num_rules == 1
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     assert not ϕ
     assert mdb.num_rules == 3
 
-    #### run constructor to convergence on mini cube
+    ### Integration tests
     cube_size = 2
     valid_actions = (
         (0,1,1), (0,1,2), (0,1,3),
@@ -133,12 +133,29 @@ if __name__ == "__main__":
         s = [all_states[idx]] + domain.intermediate_states(a, all_states[idx])
         return s, a
 
+    ### test persistent prototype chains
     mdb = MacroDatabase(domain, len(all_probs))
     mdb.add_rule(solved, (), 0, added=-1)
     for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
 
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-    cons = Constructor(alg, max_actions, scramble, γ, φ_threshold)
+    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
 
-    cons.run(mdb)
+    for i in range(500):
+        s, a = scramble(cons.max_actions - cons.alg.max_depth)
+        ϕ = cons.incorporate(mdb, s, a)
+        for r in range(1, mdb.num_rules):
+            print(i,r)
+            s_ = mdb.apply_rule(r, mdb.prototypes[r])
+            assert (s_ == mdb.prototypes[:r]).all(axis=1).any()
+
+    # run constructor to convergence
+    for reps in range(30):
+        mdb = MacroDatabase(domain, len(all_probs))
+        mdb.add_rule(solved, (), 0, added=-1)
+        for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
+
+        alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+        cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
+        cons.run(mdb)
 
