@@ -52,9 +52,17 @@ class Constructor:
         while ema < self.ema_threshold:
             s, a = self.scramble(self.max_actions - self.alg.max_depth)
             ϕ = self.incorporate(mdb, s, a)
-            if ϕ: print(f"{self.num_incs}: ema = {ema}")
             ema = self.γ * ema + (1. - self.γ) * int(ϕ)
             self.ema_history.append(ema)
+
+    def run_passes(self, mdb, all_scrambles, verbose=True):
+        done = False
+        while not done:
+            done = True
+            for i, (s, a) in enumerate(all_scrambles):
+                ϕ = self.incorporate(mdb, s, a)
+                done = ϕ and done
+            if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
 
 if __name__ == "__main__":
 
@@ -126,6 +134,9 @@ if __name__ == "__main__":
     all_states = tree.states_rooted_at(solved)
     optimal_paths = tuple(map(tuple, map(domain.reverse, tree.paths()))) # from state to solved
     all_probs = list(zip(all_states, optimal_paths))
+    optimal_interstates = [
+        [s] + domain.intermediate_states(a, s)
+        for s, a in all_probs]
     
     def scramble(num_actions):
         idx = np.random.choice(len(all_probs))
@@ -149,7 +160,7 @@ if __name__ == "__main__":
             s_ = mdb.apply_rule(r, mdb.prototypes[r])
             assert (s_ == mdb.prototypes[:r]).all(axis=1).any()
 
-    # run constructor to convergence
+    # run constructor to ema convergence without crashing
     for reps in range(30):
         mdb = MacroDatabase(domain, len(all_probs))
         mdb.add_rule(solved, (), 0, added=-1)
@@ -159,3 +170,27 @@ if __name__ == "__main__":
         cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
         cons.run(mdb)
 
+    # run constructor to true convergence with all scrambles
+    from time import perf_counter
+    rep_times = []
+    all_scrambles = list(zip(optimal_interstates, optimal_paths))
+    for reps in range(30):
+        print(f"check {reps}")
+
+        start = perf_counter()
+        mdb = MacroDatabase(domain, len(all_probs))
+        mdb.add_rule(solved, (), 0, added=-1)
+        for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
+    
+        alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+        cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
+        cons.run_passes(mdb, all_scrambles)
+
+        rep_times.append(perf_counter() - start)
+    
+        for state in all_states:
+            success, plan, rule_indices, triggerers = alg.run(max_actions, mdb, state)
+            assert success
+
+    print(f"avg time = {np.mean(rep_times)}")
+    
