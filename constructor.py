@@ -137,12 +137,10 @@ if __name__ == "__main__":
     optimal_interstates = [
         [s] + domain.intermediate_states(a, s)
         for s, a in all_probs]
+    all_scrambles = list(zip(optimal_interstates, optimal_paths))
     
     def scramble(num_actions):
-        idx = np.random.choice(len(all_probs))
-        a = optimal_paths[idx]
-        s = [all_states[idx]] + domain.intermediate_states(a, all_states[idx])
-        return s, a
+        return all_scrambles[np.random.choice(len(all_scrambles))]
 
     ### test persistent prototype chains
     mdb = MacroDatabase(domain, len(all_probs))
@@ -173,7 +171,6 @@ if __name__ == "__main__":
     # run constructor to true convergence with all scrambles
     from time import perf_counter
     rep_times = []
-    all_scrambles = list(zip(optimal_interstates, optimal_paths))
     for reps in range(30):
         print(f"check {reps}")
 
@@ -193,4 +190,64 @@ if __name__ == "__main__":
             assert success
 
     print(f"avg time = {np.mean(rep_times)}")
+    
+    ### Scale up domain
+    print("making scaled up states...")
+
+    # # pocket cube: one axis with quarter twists, two with half twists
+    # # 5040 states, reached in max_depth=13
+    # cube_size = 2
+    # valid_actions = (
+    #     (0,1,1), (0,1,2), (0,1,3),
+    #     (1,1,2),
+    #     (2,1,2),
+    # )
+    # cube_str = "s5040"
+    # tree_depth = 13
+
+    # # pocket cube: two axes with quarter twists, one fixed
+    # # 29k states, reached in max_depth=14
+    # cube_size = 2
+    # valid_actions = (
+    #     (0,1,1), (0,1,2), (0,1,3),
+    #     (1,1,1), (1,1,2), (1,1,3),
+    # )
+    # cube_str = "s29k"
+    # tree_depth = 14
+
+    # full pocket cube, all actions allowed, ~4m states
+    cube_size = 2
+    valid_actions = None
+    cube_str = "full"
+    tree_depth = 11
+
+    domain = CubeDomain(cube_size, valid_actions)
+    tree = SearchTree(domain, tree_depth)
+    assert tree.depth() == tree_depth
+    
+    all_states = tree.states_rooted_at(domain.solved_state())
+    optimal_paths = tuple(map(tuple, map(domain.reverse, tree.paths()))) # from state to solved
+    all_probs = list(zip(all_states, optimal_paths))
+    optimal_interstates = [
+        [s] + domain.intermediate_states(a, s)
+        for s, a in all_probs]
+    all_scrambles = list(zip(optimal_interstates, optimal_paths))
+    
+    start = perf_counter()
+    mdb = MacroDatabase(domain, len(all_probs))
+    mdb.add_rule(solved, (), 0, added=-1)
+    for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
+
+    alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
+    cons.run_passes(mdb, all_scrambles)
+
+    total_time = perf_counter() - start
+    print(f"total time = {total_time}")
+
+    print("checking...")
+    for state in all_states:
+        success, plan, rule_indices, triggerers = alg.run(max_actions, mdb, state)
+        assert success
+    print("success!")
     
