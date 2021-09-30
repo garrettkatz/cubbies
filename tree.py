@@ -50,6 +50,9 @@ class SearchTree:
     def depth(self):
         return len(self._count) - 1
 
+    def size(self):
+        return self._count[-1]
+
     def __iter__(self):
         return zip(self._paths, self._permutations)
 

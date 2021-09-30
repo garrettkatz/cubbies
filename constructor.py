@@ -59,7 +59,7 @@ class Constructor:
         done = False
         while not done:
             done = True
-            for i, (s, a) in enumerate(all_scrambles):
+            for i, (s, a) in enumerate(all_scrambles()):
                 ϕ = self.incorporate(mdb, s, a)
                 done = ϕ and done
             if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
@@ -131,19 +131,22 @@ if __name__ == "__main__":
     tree = SearchTree(domain, tree_depth)
     assert tree.depth() == tree_depth
     
-    all_states = tree.states_rooted_at(solved)
-    optimal_paths = tuple(map(tuple, map(domain.reverse, tree.paths()))) # from state to solved
-    all_probs = list(zip(all_states, optimal_paths))
-    optimal_interstates = [
-        [s] + domain.intermediate_states(a, s)
-        for s, a in all_probs]
-    all_scrambles = list(zip(optimal_interstates, optimal_paths))
-    
     def scramble(num_actions):
-        return all_scrambles[np.random.choice(len(all_scrambles))]
+        idx = np.random.choice(tree.size())
+        s0 = domain.solved_state()[tree.permutations()[idx]]
+        a = domain.reverse(tree.paths()[idx])
+        s = [s0] + domain.intermediate_states(a, s0)
+        return s, a
+
+    def all_scrambles():
+        for idx in range(tree.size()):
+            s0 = domain.solved_state()[tree.permutations()[idx]]
+            a = domain.reverse(tree.paths()[idx])
+            s = [s0] + domain.intermediate_states(a, s0)
+            yield s, a
 
     ### test persistent prototype chains
-    mdb = MacroDatabase(domain, len(all_probs))
+    mdb = MacroDatabase(domain, tree.size())
     mdb.add_rule(solved, (), 0, added=-1)
     for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
 
@@ -160,7 +163,7 @@ if __name__ == "__main__":
 
     # run constructor to ema convergence without crashing
     for reps in range(30):
-        mdb = MacroDatabase(domain, len(all_probs))
+        mdb = MacroDatabase(domain, tree.size())
         mdb.add_rule(solved, (), 0, added=-1)
         for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
 
@@ -175,7 +178,7 @@ if __name__ == "__main__":
         print(f"check {reps}")
 
         start = perf_counter()
-        mdb = MacroDatabase(domain, len(all_probs))
+        mdb = MacroDatabase(domain, tree.size())
         mdb.add_rule(solved, (), 0, added=-1)
         for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
     
@@ -185,7 +188,7 @@ if __name__ == "__main__":
 
         rep_times.append(perf_counter() - start)
     
-        for state in all_states:
+        for state in tree.states_rooted_at(domain.solved_state()):
             success, plan, rule_indices, triggerers = alg.run(max_actions, mdb, state)
             assert success
 
@@ -224,17 +227,18 @@ if __name__ == "__main__":
     domain = CubeDomain(cube_size, valid_actions)
     tree = SearchTree(domain, tree_depth)
     assert tree.depth() == tree_depth
-    
-    all_states = tree.states_rooted_at(domain.solved_state())
-    optimal_paths = tuple(map(tuple, map(domain.reverse, tree.paths()))) # from state to solved
-    all_probs = list(zip(all_states, optimal_paths))
-    optimal_interstates = [
-        [s] + domain.intermediate_states(a, s)
-        for s, a in all_probs]
-    all_scrambles = list(zip(optimal_interstates, optimal_paths))
+
+    def all_scrambles():
+        for idx in range(tree.size()):
+            s0 = domain.solved_state()[tree.permutations()[idx]]
+            a = domain.reverse(tree.paths()[idx])
+            s = [s0] + domain.intermediate_states(a, s0)
+            yield s, a
+
+    print("done. running constructor passes...")
     
     start = perf_counter()
-    mdb = MacroDatabase(domain, len(all_probs))
+    mdb = MacroDatabase(domain, tree.size())
     mdb.add_rule(solved, (), 0, added=-1)
     for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
 
@@ -246,7 +250,8 @@ if __name__ == "__main__":
     print(f"total time = {total_time}")
 
     print("checking...")
-    for state in all_states:
+    for i in range(tree.size()):
+        state = domain.solved_state()[tree.permutations()[i]]
         success, plan, rule_indices, triggerers = alg.run(max_actions, mdb, state)
         assert success
     print("success!")
