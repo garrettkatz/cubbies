@@ -12,6 +12,7 @@ class Algorithm:
         # or result = False if there is no path to a macro or solved state
 
         paths = self.bfs_tree.paths(up_to_depth=self.max_depth)
+        solved_state = self.domain.solved_state()
     
         if self.color_neutral:
             recolorings = self.domain.color_neutral_to(state)
@@ -20,20 +21,14 @@ class Algorithm:
     
         for sym, recoloring in enumerate(recolorings):
     
-            descendents = self.bfs_tree.states_rooted_at(recoloring, up_to_depth=self.max_depth)
-    
+            # Return macro if any descendent triggers a rule, including solve state rule
+            descendents = self.bfs_tree.states_rooted_at(recoloring, up_to_depth=self.max_depth)    
             for k in range(len(paths)):
                 actions, descendent = paths[k], descendents[k] 
-            
-                # Empty macro if problem is solved in descendent state
-                if self.domain.is_solved_in(descendent):
-                    return sym, actions, 0, (), self.domain.solved_state(), self.domain.solved_state()
-    
-                # Non-empty macro if matched
                 rule_index = macro_database.query(descendent)
                 if rule_index != None:
                     macro = macro_database.macros[rule_index]
-                    new_state = self.domain.execute(macro, descendent)
+                    new_state = macro_database.apply_rule(rule_index, descendent)
                     return (sym, actions, rule_index, macro, descendent, new_state)
     
         # Failure if no path to macro found

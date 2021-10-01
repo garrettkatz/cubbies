@@ -1,4 +1,5 @@
-try code-optimizing prefix tree with links[node,value] array to see about speed up
+profile, then maybe try code-optimizing prefix tree with links[node,value] array to see about speed up
+alternative ftb: just try to minimize number of rules at convergence.  with current speed-up, can run every rollout to terminal state in mcts
 fork-the-best rewrite
 split macro db from prefix functionality
     don't subclass, violates LSP and copy does not play well with inheritance
@@ -20,6 +21,7 @@ prefix tree refs:
     https://arxiv.org/ftp/arxiv/papers/1007/1007.0085.pdf (mainly for refs)
     https://www.kdd.org/kdd2021/ (on AAAI shortlist)
 
+DONE successful construction for pocket cube in one hour, 500k rules for 3600k states
 DONE all_scrambles generator instead of building all reversed paths in memory
 DONE confirmed for make_tau that prefix query returns None when no brute matches, when prefix query returns rule it is the sole brute match
 DONE constructor rewrite

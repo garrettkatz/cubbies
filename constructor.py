@@ -197,16 +197,16 @@ if __name__ == "__main__":
     ### Scale up domain
     print("making scaled up states...")
 
-    # # pocket cube: one axis with quarter twists, two with half twists
-    # # 5040 states, reached in max_depth=13
-    # cube_size = 2
-    # valid_actions = (
-    #     (0,1,1), (0,1,2), (0,1,3),
-    #     (1,1,2),
-    #     (2,1,2),
-    # )
-    # cube_str = "s5040"
-    # tree_depth = 13
+    # pocket cube: one axis with quarter twists, two with half twists
+    # 5040 states, reached in max_depth=13
+    cube_size = 2
+    valid_actions = (
+        (0,1,1), (0,1,2), (0,1,3),
+        (1,1,2),
+        (2,1,2),
+    )
+    cube_str = "s5040"
+    tree_depth = 13
 
     # # pocket cube: two axes with quarter twists, one fixed
     # # 29k states, reached in max_depth=14
@@ -218,11 +218,11 @@ if __name__ == "__main__":
     # cube_str = "s29k"
     # tree_depth = 14
 
-    # full pocket cube, all actions allowed, ~4m states
-    cube_size = 2
-    valid_actions = None
-    cube_str = "full"
-    tree_depth = 11
+    # # full pocket cube, all actions allowed, ~4m states
+    # cube_size = 2
+    # valid_actions = None
+    # cube_str = "full"
+    # tree_depth = 11
 
     domain = CubeDomain(cube_size, valid_actions)
     tree = SearchTree(domain, tree_depth)
