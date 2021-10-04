@@ -1,5 +1,12 @@
-profile, then maybe try code-optimizing prefix tree with links[node,value] array to see about speed up
-alternative ftb: just try to minimize number of rules at convergence.  with current speed-up, can run every rollout to terminal state in mcts
+meta-completeness proofs:
+    can any possible rule table (subject to prefix tree restraints) be created with the right non-deterministic choices?
+    prefix tree restraints might boil down to: for each state, there is a unique rule (or no rule) that matches it (state->rule mappings are many->one)
+alternative ftb:
+    just try to minimize number of rules at convergence with new ftb mcts.
+    with current speed-up, can run every rollout to terminal state in mcts in <= about one hour for full pocket cube
+    provably better efficiency:
+        static period estimates fraction of unhandled states, which bounds-above remaining rules needed (and current num rules bounds below).
+        pick next fork based on this
 fork-the-best rewrite
 split macro db from prefix functionality
     don't subclass, violates LSP and copy does not play well with inheritance
@@ -7,7 +14,7 @@ split macro db from prefix functionality
     prefix db does not have macros or costs, just patterns and wildcards
     macro db includes macros, costs, and permutations for each macro to apply it quickly
 profile full ftb again with prefix db
-new ftw:
+new ftb:
     try multiple trails from each fork-point, including trail root
     move fork-points forward rather than from trail end?
     coordinate with full frontier to save any trail that is non-dominated, regardless of current scalarization
@@ -21,6 +28,7 @@ prefix tree refs:
     https://arxiv.org/ftp/arxiv/papers/1007/1007.0085.pdf (mainly for refs)
     https://www.kdd.org/kdd2021/ (on AAAI shortlist)
 
+DONE tried array version of prefix tree but marginal performance change
 DONE successful construction for pocket cube in one hour, 500k rules for 3600k states
 DONE all_scrambles generator instead of building all reversed paths in memory
 DONE confirmed for make_tau that prefix query returns None when no brute matches, when prefix query returns rule it is the sole brute match

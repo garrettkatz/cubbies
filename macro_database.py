@@ -177,7 +177,6 @@ class MacroDatabase:
 
 if __name__ == "__main__":
 
-
     from cube import CubeDomain
     domain = CubeDomain(2)
     solved = domain.solved_state()
@@ -358,8 +357,8 @@ if __name__ == "__main__":
     for action in actions: state = domain.perform(action, state)
     assert (state == new_state).all()
 
-    # compare timing of prefix and brute queries
-    rule_count = 1000
+    # compare timing of prefix and brute queries, and array-based prefix
+    rule_count = 5000
 
     md = MacroDatabase(domain, max_rules=rule_count)
     md.add_rule(solved, (), 0)
@@ -370,11 +369,59 @@ if __name__ == "__main__":
         state = domain.random_state(20, rng)
         md.add_rule(state, (), 0)
 
+    print("counting nodes...")
+    def count_nodes(node):
+        if node.is_wild():
+            return 1 + count_nodes(node.links[0])
+        else:
+            count = 0
+            for v, child in node.links.items():
+                count += count_nodes(child)
+            return 1 + count
+    print(f"{count_nodes(md.root)} total nodes")
+
+    # make prefix tree array query
+    class ArrayPrefixTree:
+        def __init__(self, root):
+            self.links = -np.ones((rule_count * (domain.state_size()+1), 7), dtype=int)
+            self.rules = -np.ones(rule_count * (domain.state_size()+1), dtype=int)
+            self.num_nodes = 0
+            self.link(root)
+            # very marginal benefit after tuplifying, otherwise marginally worse
+            self.links = tuple(tuple(links) for links in self.links)
+            self.rules = tuple(self.rules)
+        def add(self, node):
+            n = self.num_nodes
+            if node.rule != None: self.rules[n] = node.rule
+            self.num_nodes += 1
+            return n
+        def link(self, node):
+            n = self.add(node)
+            if node.is_wild():
+                c = self.link(node.links[0])
+                self.links[n,:] = c
+            else:
+                for v, child in node.links.items():
+                    c = self.link(node.links[v])
+                    self.links[n,v] = c
+            return n
+        def query(self, state):
+            n = 0
+            for k,v in enumerate(state):
+                n = self.links[n][v]
+                if n == -1: return None
+            return self.rules[n]
+
+    apt = ArrayPrefixTree(md.root)
+
     from time import perf_counter
     prefix_time = 0
     brute_time = 0
+    array_time = 0
 
     for state in md.prototypes:
+
+        assert md.query(state) == apt.query(state)
 
         start = perf_counter()
         result = md.query(state)
@@ -383,16 +430,24 @@ if __name__ == "__main__":
         start = perf_counter()
         result = np.flatnonzero(((state == md.prototypes) | md.wildcards).all(axis=1))
         brute_time += perf_counter() - start
+
+        start = perf_counter()
+        result = apt.query(state)
+        array_time += perf_counter() - start
 
     print("prototype queries:")
     print("prefix time", prefix_time)
     print("brute time", brute_time)
+    print("array time", array_time)
 
     prefix_time = 0
     brute_time = 0
+    array_time = 0
 
     for s in range(rule_count):
         state = domain.random_state(20, rng)
+
+        assert md.query(state) == apt.query(state)
 
         start = perf_counter()
         result = md.query(state)
@@ -402,7 +457,12 @@ if __name__ == "__main__":
         result = np.flatnonzero(((state == md.prototypes) | md.wildcards).all(axis=1))
         brute_time += perf_counter() - start
 
+        start = perf_counter()
+        result = apt.query(state)
+        array_time += perf_counter() - start
+
     print("random state queries:")
     print("prefix time", prefix_time)
     print("brute time", brute_time)
+    print("array time", array_time)
 
