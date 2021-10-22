@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as pt
+from macro_database import MacroDatabase
 
 class Constructor:
-    def __init__(self, alg, max_actions, scramble, γ, ema_threshold):
+    def __init__(self, alg, max_actions, γ, ema_threshold):
         self.alg = alg
         self.max_actions = max_actions
-        self.scramble = scramble
         self.γ = γ
         self.ema_threshold = ema_threshold
         self.ema_history = [0.]
@@ -47,15 +47,15 @@ class Constructor:
         self.num_incs += 1
         return ϕ
 
-    def run(self, mdb):
+    def run(self, mdb, scramble):
         ema = self.ema_history[self.num_incs]
         while ema < self.ema_threshold:
-            s, a = self.scramble(self.max_actions - self.alg.max_depth)
+            s, a = scramble(self.max_actions - self.alg.max_depth)
             ϕ = self.incorporate(mdb, s, a)
             ema = self.γ * ema + (1. - self.γ) * int(ϕ)
             self.ema_history.append(ema)
 
-    def run_passes(self, mdb, all_scrambles, verbose=True):
+    def run_passes(self, mdb, all_scrambles, verbose=False):
         done = False
         while not done:
             done = True
@@ -63,6 +63,22 @@ class Constructor:
                 ϕ = self.incorporate(mdb, s, a)
                 done = ϕ and done
             if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
+
+    # static methods
+    def make_all_scrambles(domain, tree):
+        def all_scrambles():
+            for idx in range(tree.size()):
+                s0 = domain.solved_state()[tree.permutations()[idx]]
+                a = domain.reverse(tree.paths()[idx])
+                s = [s0] + domain.intermediate_states(a, s0)
+                yield s, a
+        return all_scrambles
+
+    def init_macro_database(domain, max_rules):
+        mdb = MacroDatabase(domain, max_rules)
+        mdb.add_rule(domain.solved_state(), (), 0, added=-1)
+        for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
+        return mdb
 
 if __name__ == "__main__":
 
@@ -82,16 +98,12 @@ if __name__ == "__main__":
     from tree import SearchTree
     bfs_tree = SearchTree(domain, max_depth)
 
-    from macro_database import MacroDatabase
-    mdb = MacroDatabase(domain, 3)
-    mdb.add_rule(solved, (), 0, added=-1)
-    for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
+    mdb = Constructor.init_macro_database(domain, max_rules=3)
 
     from algorithm import Algorithm
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
 
-    scramble = lambda _: None # placeholder
-    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
+    cons = Constructor(alg, max_actions, γ, ema_threshold)
     ϕ = cons.incorporate(mdb, [solved], [])
     assert ϕ
     assert mdb.num_rules == 1
@@ -138,20 +150,12 @@ if __name__ == "__main__":
         s = [s0] + domain.intermediate_states(a, s0)
         return s, a
 
-    def all_scrambles():
-        for idx in range(tree.size()):
-            s0 = domain.solved_state()[tree.permutations()[idx]]
-            a = domain.reverse(tree.paths()[idx])
-            s = [s0] + domain.intermediate_states(a, s0)
-            yield s, a
+    all_scrambles = Constructor.make_all_scrambles(domain, tree)
 
     ### test persistent prototype chains
-    mdb = MacroDatabase(domain, tree.size())
-    mdb.add_rule(solved, (), 0, added=-1)
-    for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
-
+    mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
+    cons = Constructor(alg, max_actions, γ, ema_threshold)
 
     for i in range(500):
         s, a = scramble(cons.max_actions - cons.alg.max_depth)
@@ -163,13 +167,10 @@ if __name__ == "__main__":
 
     # run constructor to ema convergence without crashing
     for reps in range(30):
-        mdb = MacroDatabase(domain, tree.size())
-        mdb.add_rule(solved, (), 0, added=-1)
-        for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
-
+        mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-        cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
-        cons.run(mdb)
+        cons = Constructor(alg, max_actions, γ, ema_threshold)
+        cons.run(mdb, scramble)
 
     # run constructor to true convergence with all scrambles
     from time import perf_counter
@@ -178,13 +179,11 @@ if __name__ == "__main__":
         print(f"check {reps}")
 
         start = perf_counter()
-        mdb = MacroDatabase(domain, tree.size())
-        mdb.add_rule(solved, (), 0, added=-1)
-        for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
-    
+
+        mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-        cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
-        cons.run_passes(mdb, all_scrambles)
+        cons = Constructor(alg, max_actions, γ, ema_threshold)
+        cons.run_passes(mdb, all_scrambles, verbose=True)
 
         rep_times.append(perf_counter() - start)
     
@@ -197,54 +196,27 @@ if __name__ == "__main__":
     ### Scale up domain
     print("making scaled up states...")
 
-    # pocket cube: one axis with quarter twists, two with half twists
-    # 5040 states, reached in max_depth=13
-    cube_size = 2
-    valid_actions = (
-        (0,1,1), (0,1,2), (0,1,3),
-        (1,1,2),
-        (2,1,2),
-    )
-    cube_str = "s5040"
-    tree_depth = 13
-
-    # # pocket cube: two axes with quarter twists, one fixed
-    # # 29k states, reached in max_depth=14
-    # cube_size = 2
-    # valid_actions = (
-    #     (0,1,1), (0,1,2), (0,1,3),
-    #     (1,1,1), (1,1,2), (1,1,3),
-    # )
+    cube_str = "s120"
+    # cube_str = "s5040"
     # cube_str = "s29k"
-    # tree_depth = 14
+    # cube_str = "pocket"
 
-    # # full pocket cube, all actions allowed, ~4m states
-    # cube_size = 2
-    # valid_actions = None
-    # cube_str = "full"
-    # tree_depth = 11
+    cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
     domain = CubeDomain(cube_size, valid_actions)
     tree = SearchTree(domain, tree_depth)
     assert tree.depth() == tree_depth
 
-    def all_scrambles():
-        for idx in range(tree.size()):
-            s0 = domain.solved_state()[tree.permutations()[idx]]
-            a = domain.reverse(tree.paths()[idx])
-            s = [s0] + domain.intermediate_states(a, s0)
-            yield s, a
+    all_scrambles = Constructor.make_all_scrambles(domain, tree)
 
     print("done. running constructor passes...")
     
     start = perf_counter()
-    mdb = MacroDatabase(domain, tree.size())
-    mdb.add_rule(solved, (), 0, added=-1)
-    for w in range(domain.state_size()): mdb.disable(0, w, tamed=-1)
 
+    mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-    cons = Constructor(alg, max_actions, scramble, γ, ema_threshold)
-    cons.run_passes(mdb, all_scrambles)
+    cons = Constructor(alg, max_actions, γ, ema_threshold)
+    cons.run_passes(mdb, all_scrambles, verbose=True)
 
     total_time = perf_counter() - start
     print(f"total time = {total_time}")

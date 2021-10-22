@@ -304,6 +304,49 @@ class CubeDomain:
         ax.axis('off')
         return ax
 
+    # static method
+    def parameters(key):
+
+        if key == "s120":
+            # pocket cube: one axis with quarter twists, one with half twists
+            # 120 states, max depth 11
+            cube_size = 2
+            valid_actions = (
+                (0,1,1), (0,1,2), (0,1,3),
+                (1,1,2), 
+            )
+            tree_depth = 11
+
+        if key == "s5040":
+            # pocket cube: one axis with quarter twists, two with half twists
+            # 5040 states, reached in max_depth=13
+            cube_size = 2
+            valid_actions = (
+                (0,1,1), (0,1,2), (0,1,3),
+                (1,1,2),
+                (2,1,2),
+            )
+            tree_depth = 13
+
+        if key == "s29k":        
+            # pocket cube: two axes with quarter twists, one fixed
+            # 29k states, reached in max_depth=14
+            cube_size = 2
+            valid_actions = (
+                (0,1,1), (0,1,2), (0,1,3),
+                (1,1,1), (1,1,2), (1,1,3),
+            )
+            tree_depth = 14
+
+        if key == "pocket":
+            # full pocket cube, all actions allowed, ~4m states
+            cube_size = 2
+            valid_actions = None
+            tree_depth = 11
+
+        return cube_size, valid_actions, tree_depth
+
+
 if __name__ == "__main__":
 
     # #### test performing actions
