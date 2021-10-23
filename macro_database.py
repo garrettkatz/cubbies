@@ -169,11 +169,13 @@ class MacroDatabase:
         return db
 
     def rewind(self, i):
+        # keep all edits up to and including i
         self.root.rewind(i)
         self.num_rules = np.argmax(self.added > i)
-        self.added[self.num_rules:] = np.iinfo(int).max        
+        self.added[self.num_rules:] = np.iinfo(int).max
         self.wildcards = self.tamed > i
         self.tamed[self.wildcards] = np.iinfo(int).max
+        return self
 
 if __name__ == "__main__":
 

@@ -56,13 +56,28 @@ class Constructor:
             self.ema_history.append(ema)
 
     def run_passes(self, mdb, all_scrambles, verbose=False):
+        ema = self.ema_history[self.num_incs]
         done = False
         while not done:
             done = True
             for i, (s, a) in enumerate(all_scrambles()):
                 ϕ = self.incorporate(mdb, s, a)
                 done = ϕ and done
+                ema = self.γ * ema + (1. - self.γ) * int(ϕ)
+                self.ema_history.append(ema)
             if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
+
+    def copy(self):
+        con = Constructor(self.alg, self.max_actions, self.γ, self.ema_threshold)
+        con.ema_history = list(self.ema_history)
+        con.num_incs = self.num_incs
+        return con
+
+    def rewind(self, inc):
+        # up to and including inc
+        self.num_incs = inc+1
+        self.ema_history = self.ema_history[:self.num_incs+1]
+        return self
 
     # static methods
     def make_all_scrambles(domain, tree):

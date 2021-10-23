@@ -1,5 +1,6 @@
 import os
 import pickle as pk
+import numpy as np
 from cube import CubeDomain
 from tree import SearchTree
 from macro_database import MacroDatabase
@@ -9,7 +10,7 @@ from constructor import Constructor
 if __name__ == "__main__":
 
     do_cons = True
-    showresults = False
+    showresults = True
 
     γ = 0.9
     ema_threshold = 0.9999
@@ -17,7 +18,8 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    num_rollouts = 10000
+    num_repetitions = 100
+    num_rollouts = 100
 
     cube_str = "s120"
     # cube_str = "s5040"
@@ -31,7 +33,9 @@ if __name__ == "__main__":
 
     if do_cons:
 
-        print("making scaled up states...")
+        if not os.path.exists(dump_dir): os.mkdir(dump_dir)
+
+        print("making states...")
         domain = CubeDomain(cube_size, valid_actions)
         tree = SearchTree(domain, tree_depth)
         assert tree.depth() == tree_depth
@@ -40,25 +44,68 @@ if __name__ == "__main__":
         bfs_tree = SearchTree(domain, max_depth)
         all_scrambles = Constructor.make_all_scrambles(domain, tree)
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
-    
-        folksiness = []
-    
-        for r in range(num_rollouts):
-    
-            mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
-            cons = Constructor(alg, max_actions, γ, ema_threshold)
-            cons.run_passes(mdb, all_scrambles)
-    
-            folksiness.append(mdb.num_rules)
-            
-            print(f"{r=} of {num_rollouts}: {folksiness[-1]}")
 
-        with open(os.path.join(dump_dir, dump_base + ".pkl"), "wb") as f: pk.dump(folksiness, f)
+        for rep in range(num_repetitions):
+
+            mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
+            con = Constructor(alg, max_actions, γ, ema_threshold)
+            con.run_passes(mdb, all_scrambles)
+
+            inc = np.random.choice(con.num_incs)
+            mdb.rewind(inc)
+            con.rewind(inc)
+
+            folksiness = []
+            ema_histories = []
+        
+            for ro in range(num_rollouts):
+        
+                mdb_ro = mdb.copy()
+                con_ro = con.copy()
+                con_ro.run_passes(mdb_ro, all_scrambles)
+        
+                folksiness.append(mdb_ro.num_rules)
+                ema_histories.append(con_ro.ema_history)
+                
+                print(
+                    f"({rep}, {ro}) of ({num_repetitions}, {num_rollouts}): \
+                    {con.ema_history[con.num_incs]} ~> {mdb.num_rules} v {mdb_ro.num_rules}")
+    
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "wb") as f:
+                pk.dump((con, mdb, folksiness, ema_histories), f)
 
     if showresults:
 
-        with open(os.path.join(dump_dir, dump_base + ".pkl"), "rb") as f: folksiness = pk.load(f)
-
         import matplotlib.pyplot as pt
-        pt.hist(folksiness)
+
+        for rep in range(num_repetitions):
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
+                (con, mdb, folksiness, ema_histories) = pk.load(f)
+            
+            pt.subplot(2,2,1)
+            x, y, yerr = con.num_incs, np.mean(folksiness), np.std(folksiness)
+            pt.errorbar(x, y, yerr, c='k')
+            pt.plot(x, y, 'ko')
+            pt.xlabel("Branch inc")
+            pt.ylabel("Folksiness")
+
+            pt.subplot(2,2,2)
+            x, y, yerr = con.ema_history[-1], np.mean(folksiness), np.std(folksiness)
+            pt.errorbar(x, y, yerr, c='k')
+            pt.plot(x, y, 'ko')
+            pt.xlabel("Branch ema")
+            pt.ylabel("Folksiness")
+
+            pt.subplot(2,2,3)
+            x, y = con.num_incs, np.std(folksiness)
+            pt.scatter(x, y, c='k')
+            pt.xlabel("Branch inc")
+            pt.ylabel("Dev Folksiness")
+
+            pt.subplot(2,2,4)
+            x, y = con.ema_history[-1], np.std(folksiness)
+            pt.scatter(x, y, c='k')
+            pt.xlabel("Branch ema")
+            pt.ylabel("Dev Folksiness")
+
         pt.show()
