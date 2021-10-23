@@ -67,7 +67,7 @@ class Constructor:
     # static methods
     def make_all_scrambles(domain, tree):
         def all_scrambles():
-            for idx in range(tree.size()):
+            for idx in np.random.permutation(tree.size()):
                 s0 = domain.solved_state()[tree.permutations()[idx]]
                 a = domain.reverse(tree.paths()[idx])
                 s = [s0] + domain.intermediate_states(a, s0)
