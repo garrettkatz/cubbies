@@ -1,6 +1,11 @@
+current rollouts from each branch inc should give some indication of best possible rollout from there, measure this empirically?
+
 meta-completeness proofs:
     can any possible rule table (subject to prefix tree restraints) be created with the right non-deterministic choices?
-    prefix tree restraints might boil down to: for each state, there is a unique rule (or no rule) that matches it (state->rule mappings are many->one)
+        maybe could prove this by assuming scrambles appear in prototype order
+    
+prefix tree restraints might boil down to: for each state, there is a unique rule (or no rule) that matches it (state->rule mappings are many->one)
+
 alternative ftb:
     just try to minimize number of rules at convergence with new ftb mcts.
     with current speed-up, can run every rollout to terminal state in mcts in <= about one hour for full pocket cube

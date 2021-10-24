@@ -10,7 +10,7 @@ from constructor import Constructor
 if __name__ == "__main__":
 
     do_cons = True
-    showresults = True
+    showresults = False
 
     γ = 0.9
     ema_threshold = 0.9999
@@ -18,8 +18,8 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    num_repetitions = 100
-    num_rollouts = 100
+    num_repetitions = 1000
+    num_rollouts = 1000
 
     cube_str = "s120"
     # cube_str = "s5040"
@@ -107,5 +107,19 @@ if __name__ == "__main__":
             pt.scatter(x, y, c='k')
             pt.xlabel("Branch ema")
             pt.ylabel("Dev Folksiness")
+
+        pt.show()
+
+        for rep in range(num_repetitions):
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
+                (con, mdb, folksiness, ema_histories) = pk.load(f)
+
+            estimates = [np.mean(folksiness[:n+1]) for n in range(len(folksiness))]
+            errors = np.fabs(np.array(estimates) - np.mean(folksiness))
+
+            # pt.subplot(2,2,1)
+            pt.plot(errors, c=(con.ema_history[-1],)*3, marker='.', linestyle='-')
+            pt.xlabel("Num rollouts")
+            pt.ylabel("Folksiness error")
 
         pt.show()
