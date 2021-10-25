@@ -9,8 +9,8 @@ from constructor import Constructor
 
 if __name__ == "__main__":
 
-    do_cons = True
-    showresults = False
+    do_cons = False
+    showresults = True
 
     γ = 0.9
     ema_threshold = 0.9999
@@ -78,48 +78,62 @@ if __name__ == "__main__":
 
         import matplotlib.pyplot as pt
 
-        for rep in range(num_repetitions):
-            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
-                (con, mdb, folksiness, ema_histories) = pk.load(f)
+        # for rep in range(num_repetitions):
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
+        #         (con, mdb, folksiness, ema_histories) = pk.load(f)
             
-            pt.subplot(2,2,1)
-            x, y, yerr = con.num_incs, np.mean(folksiness), np.std(folksiness)
-            pt.errorbar(x, y, yerr, c='k')
-            pt.plot(x, y, 'ko')
-            pt.xlabel("Branch inc")
-            pt.ylabel("Folksiness")
+        #     pt.subplot(2,2,1)
+        #     x, y, yerr = con.num_incs, np.mean(folksiness), np.std(folksiness)
+        #     pt.errorbar(x, y, yerr, c='k')
+        #     pt.plot(x, y, 'ko')
+        #     pt.xlabel("Branch inc")
+        #     pt.ylabel("Folksiness")
 
-            pt.subplot(2,2,2)
-            x, y, yerr = con.ema_history[-1], np.mean(folksiness), np.std(folksiness)
-            pt.errorbar(x, y, yerr, c='k')
-            pt.plot(x, y, 'ko')
-            pt.xlabel("Branch ema")
-            pt.ylabel("Folksiness")
+        #     pt.subplot(2,2,2)
+        #     x, y, yerr = con.ema_history[-1], np.mean(folksiness), np.std(folksiness)
+        #     pt.errorbar(x, y, yerr, c='k')
+        #     pt.plot(x, y, 'ko')
+        #     pt.xlabel("Branch ema")
+        #     pt.ylabel("Folksiness")
 
-            pt.subplot(2,2,3)
-            x, y = con.num_incs, np.std(folksiness)
-            pt.scatter(x, y, c='k')
-            pt.xlabel("Branch inc")
-            pt.ylabel("Dev Folksiness")
+        #     pt.subplot(2,2,3)
+        #     x, y = con.num_incs, np.std(folksiness)
+        #     pt.scatter(x, y, c='k')
+        #     pt.xlabel("Branch inc")
+        #     pt.ylabel("Dev Folksiness")
 
-            pt.subplot(2,2,4)
-            x, y = con.ema_history[-1], np.std(folksiness)
-            pt.scatter(x, y, c='k')
-            pt.xlabel("Branch ema")
-            pt.ylabel("Dev Folksiness")
+        #     pt.subplot(2,2,4)
+        #     x, y = con.ema_history[-1], np.std(folksiness)
+        #     pt.scatter(x, y, c='k')
+        #     pt.xlabel("Branch ema")
+        #     pt.ylabel("Dev Folksiness")
 
-        pt.show()
+        # pt.show()
+
+        # for rep in range(num_repetitions):
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
+        #         (con, mdb, folksiness, ema_histories) = pk.load(f)
+
+        #     estimates = [np.mean(folksiness[:n+1]) for n in range(len(folksiness))]
+        #     errors = np.fabs(np.array(estimates) - np.mean(folksiness))
+
+        #     # pt.subplot(2,2,1)
+        #     pt.plot(errors, c=(con.ema_history[-1],)*3, marker='.', linestyle='-')
+        #     pt.xlabel("Num rollouts")
+        #     pt.ylabel("Folksiness error")
+
+        # pt.show()
 
         for rep in range(num_repetitions):
             with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
                 (con, mdb, folksiness, ema_histories) = pk.load(f)
 
-            estimates = [np.mean(folksiness[:n+1]) for n in range(len(folksiness))]
-            errors = np.fabs(np.array(estimates) - np.mean(folksiness))
+            best = np.min(folksiness)
+            error = best - mdb.num_rules
 
             # pt.subplot(2,2,1)
-            pt.plot(errors, c=(con.ema_history[-1],)*3, marker='.', linestyle='-')
-            pt.xlabel("Num rollouts")
-            pt.ylabel("Folksiness error")
+            pt.scatter(con.ema_history[-1], error, color='k', marker='.')
+            pt.xlabel("Branchpoint ema")
+            pt.ylabel("Min folksiness increase")
 
         pt.show()

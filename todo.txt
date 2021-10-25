@@ -1,4 +1,10 @@
 current rollouts from each branch inc should give some indication of best possible rollout from there, measure this empirically?
+    try to fit a function f(ema, numrollouts, [rollout folksiness]) that tight-upper-bounds optimal folksiness with high probability?
+
+big rollout experiment:
+    branchpoint ema is pretty well correlated with stdev of rollout folksiness
+    absolute dev between population mean folksiness and sample-so-far mean folksiness decays rapidly
+    branchpoint ema is also pretty well correlated with folksiness of optimal rollout
 
 meta-completeness proofs:
     can any possible rule table (subject to prefix tree restraints) be created with the right non-deterministic choices?
