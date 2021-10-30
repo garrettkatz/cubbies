@@ -54,6 +54,8 @@ class Constructor:
             ϕ = self.incorporate(mdb, s, a)
             ema = self.γ * ema + (1. - self.γ) * int(ϕ)
             self.ema_history.append(ema)
+            if mdb.num_rules == mdb.max_rules: return False
+        return True
 
     def run_passes(self, mdb, all_scrambles, verbose=False):
         ema = self.ema_history[self.num_incs]
@@ -65,7 +67,9 @@ class Constructor:
                 done = ϕ and done
                 ema = self.γ * ema + (1. - self.γ) * int(ϕ)
                 self.ema_history.append(ema)
+                if mdb.num_rules == mdb.max_rules: return False
             if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
+        return True
 
     def copy(self):
         con = Constructor(self.alg, self.max_actions, self.γ, self.ema_threshold)
