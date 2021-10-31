@@ -1,6 +1,8 @@
 terminate contructor runs when max rules reached
 need to gracefully not add_rule when max_rules already reached
 
+las vegas optimal speedup doesn't seem to find more folksiness than average rollout
+
 current rollouts from each branch inc should give some indication of best possible rollout from there, measure this empirically?
     try to fit a function f(ema, numrollouts, [rollout folksiness]) that tight-upper-bounds optimal folksiness with high probability?
 
