@@ -52,7 +52,8 @@ if __name__ == "__main__":
                 if restart >= len(rule_caps):
                     rule_caps.append(2 * rule_caps[-1])
                     rule_caps += rule_caps
-                max_rules = 2 * rule_caps[restart]
+                # max_rules = 2 * rule_caps[restart]
+                max_rules = rule_caps[restart]
     
                 print(f"({rep},{restart}) of ({num_repetitions},{num_restarts}): {max_rules=}")
                     

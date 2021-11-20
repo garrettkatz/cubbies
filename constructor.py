@@ -23,7 +23,7 @@ class Constructor:
             if r != None and (s[t] == mdb.prototypes[r]).all() and self.alg.max_depth + t + mdb.costs[r] <= self.max_actions]
 
     def incorporate(self, mdb, s, a):
-        ϕ = True
+        ϕ, max_out = True, False
 
         r = mdb.query(s[0])
         if r != None:
@@ -38,23 +38,27 @@ class Constructor:
                 mdb.disable(r_[n], k, tamed=self.num_incs)
 
         result = self.alg.rule_search(mdb, s[0])
-        if result == False:
+
+        if result == False and mdb.num_rules < mdb.max_rules:
             ϕ = False
             τ = self.make_τ(mdb, s)
             (t, r) = τ[np.random.choice(len(τ))]
             mdb.add_rule(s[0], a[:t], t + mdb.costs[r], added=self.num_incs)
 
+        elif result == False and mdb.num_rules == mdb.max_rules:
+            max_out = True
+
         self.num_incs += 1
-        return ϕ
+        return ϕ, max_out
 
     def run(self, mdb, scramble):
         ema = self.ema_history[self.num_incs]
         while ema < self.ema_threshold:
             s, a = scramble(self.max_actions - self.alg.max_depth)
-            ϕ = self.incorporate(mdb, s, a)
+            ϕ, max_out = self.incorporate(mdb, s, a)
             ema = self.γ * ema + (1. - self.γ) * int(ϕ)
             self.ema_history.append(ema)
-            if mdb.num_rules == mdb.max_rules: return False
+            if max_out: return False
         return True
 
     def run_passes(self, mdb, all_scrambles, verbose=False):
@@ -63,11 +67,11 @@ class Constructor:
         while not done:
             done = True
             for i, (s, a) in enumerate(all_scrambles()):
-                ϕ = self.incorporate(mdb, s, a)
+                ϕ, max_out = self.incorporate(mdb, s, a)
                 done = ϕ and done
                 ema = self.γ * ema + (1. - self.γ) * int(ϕ)
                 self.ema_history.append(ema)
-                if mdb.num_rules == mdb.max_rules: return False
+                if max_out: return False
             if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
         return True
 
@@ -123,20 +127,20 @@ if __name__ == "__main__":
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
 
     cons = Constructor(alg, max_actions, γ, ema_threshold)
-    ϕ = cons.incorporate(mdb, [solved], [])
+    ϕ, max_out = cons.incorporate(mdb, [solved], [])
     assert ϕ
     assert mdb.num_rules == 1
 
     # within max depth
     s, a = [domain.perform((0,1,1), solved), solved], [(0,1,3)]
-    ϕ = cons.incorporate(mdb, s, a)
+    ϕ, max_out = cons.incorporate(mdb, s, a)
     assert ϕ
     assert mdb.num_rules == 1
 
     # outside max depth
     a = [(0,1,1), (1,1,1), (2,1,1)]
     s = [solved] + domain.intermediate_states(a, solved)
-    ϕ = cons.incorporate(mdb, s[::-1], domain.reverse(a))
+    ϕ, max_out = cons.incorporate(mdb, s[::-1], domain.reverse(a))
     assert not ϕ
     assert mdb.num_rules == 2
 
@@ -146,7 +150,7 @@ if __name__ == "__main__":
             mdb.disable(r, w)
     a = [(0,1,1), (1,1,1), (2,1,1), (1,1,1), (0,1,1), (1,1,1)]
     s = [solved] + domain.intermediate_states(a, solved)
-    ϕ = cons.incorporate(mdb, s[::-1], domain.reverse(a))
+    ϕ, max_out = cons.incorporate(mdb, s[::-1], domain.reverse(a))
     assert not ϕ
     assert mdb.num_rules == 3
 
@@ -178,11 +182,19 @@ if __name__ == "__main__":
 
     for i in range(500):
         s, a = scramble(cons.max_actions - cons.alg.max_depth)
-        ϕ = cons.incorporate(mdb, s, a)
+        ϕ, max_out = cons.incorporate(mdb, s, a)
         for r in range(1, mdb.num_rules):
             print(i,r)
             s_ = mdb.apply_rule(r, mdb.prototypes[r])
             assert (s_ == mdb.prototypes[:r]).all(axis=1).any()
+
+    ### test max_out with run_passes
+    mdb = Constructor.init_macro_database(domain, max_rules=2)
+    alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
+    cons = Constructor(alg, max_actions, γ, ema_threshold)
+    success = cons.run(mdb, scramble)
+    assert not success
+    assert mdb.num_rules == 2
 
     # run constructor to ema convergence without crashing
     for reps in range(30):
