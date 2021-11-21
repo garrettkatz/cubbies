@@ -307,6 +307,15 @@ class CubeDomain:
     # static method
     def parameters(key):
 
+        if key == "s4":
+            # pocket cube: one axis with quarter twists
+            # 4 states, max depth 2
+            cube_size = 2
+            valid_actions = (
+                (0,1,1), (0,1,2), (0,1,3),
+            )
+            tree_depth = 2
+
         if key == "s120":
             # pocket cube: one axis with quarter twists, one with half twists
             # 120 states, max depth 11
