@@ -277,7 +277,7 @@ class CubeDomain:
             state = self.perform(rng.choice(valid_actions), state)
         return state
 
-    def render(self, state, ax, x0=0, y0=0):
+    def render(self, state, ax, x0=0, y0=0, text=True, scale=1.0):
         # ax is matplotlib Axes object
         # unflatten state into cube for easier indexing
         N = self.N
@@ -285,7 +285,7 @@ class CubeDomain:
         cube.flat[self._face_index] = state
         # render orthogonal projection
         angles = -np.arange(3) * np.pi * 2 / 3
-        axes = np.array([np.cos(angles), np.sin(angles)])
+        axes = np.array([np.cos(angles), np.sin(angles)]) * scale
         for d in range(3):
             for a, b in it.product(range(N), repeat=2):
                 xy = [ a   *axes[:,d] +  b   *axes[:,(d+1) % 3],
@@ -295,7 +295,7 @@ class CubeDomain:
                 xy = [(x+x0, y+y0) for (x,y) in xy]
                 c = _colors.get(cube[tuple(np.roll((a,b,0),d))+((d+2) % 3,)], (.7,)*3)
                 ax.add_patch(Polygon(xy, facecolor=c, edgecolor='k'))
-            ax.text((N+.1)*axes[0,d], (N+.1)*axes[1,d], str(d))
+            if text: ax.text((N+.1)*axes[0,d], (N+.1)*axes[1,d], str(d))
 
     def render_subplot(self, numrows, numcols, sp, state):
         ax = pt.subplot(numrows, numcols, sp)

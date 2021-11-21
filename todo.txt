@@ -1,5 +1,8 @@
-terminate contructor runs when max rules reached
-need to gracefully not add_rule when max_rules already reached
+branch n bound
+    need to use ema run, or make branchable all_scrambles generator class
+        class re-permutes all states when they are exhausted
+        when branching, only permutes remaining states in current pass
+        also needs to be rewindable
 
 las vegas optimal speedup doesn't seem to find more folksiness than average rollout
 
