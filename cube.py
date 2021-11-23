@@ -277,7 +277,7 @@ class CubeDomain:
             state = self.perform(rng.choice(valid_actions), state)
         return state
 
-    def render(self, state, ax, x0=0, y0=0, text=True, scale=1.0):
+    def render(self, state, ax, x0=0, y0=0, text=True, scale=1.0, edgecolor='k'):
         # ax is matplotlib Axes object
         # unflatten state into cube for easier indexing
         N = self.N
@@ -294,7 +294,7 @@ class CubeDomain:
                        a   *axes[:,d] + (b+1)*axes[:,(d+1) % 3]]
                 xy = [(x+x0, y+y0) for (x,y) in xy]
                 c = _colors.get(cube[tuple(np.roll((a,b,0),d))+((d+2) % 3,)], (.7,)*3)
-                ax.add_patch(Polygon(xy, facecolor=c, edgecolor='k'))
+                ax.add_patch(Polygon(xy, facecolor=c, edgecolor=edgecolor))
             if text: ax.text((N+.1)*axes[0,d], (N+.1)*axes[1,d], str(d))
 
     def render_subplot(self, numrows, numcols, sp, state):
