@@ -1,3 +1,4 @@
+import os
 import pickle as pk
 import numpy as np
 from cube import CubeDomain
@@ -5,7 +6,7 @@ from cube import CubeDomain
 if __name__ == "__main__":
 
     do_cons = True
-    showresults = False
+    showresults = True
 
     γ = 0.9
     ema_threshold = 1.0
@@ -21,7 +22,7 @@ if __name__ == "__main__":
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
-    max_runs = 2**10
+    max_runs = 2**20
     branch_factor = 2
 
     dump_dir = "bnb"
@@ -30,7 +31,6 @@ if __name__ == "__main__":
 
     if do_cons:
 
-        import os
         if not os.path.exists(dump_dir): os.mkdir(dump_dir)
 
         print("making states...")
@@ -60,6 +60,10 @@ if __name__ == "__main__":
             branch_point = 0
             mdb_best = None
 
+            bound_history = []
+            success_history = []
+            branch_history = []
+
             for run in range(max_runs):
 
                 # run branch to termination
@@ -70,11 +74,9 @@ if __name__ == "__main__":
                 if success and mdb.num_rules < rule_bound:
                     rule_bound = mdb.num_rules
                     mdb_best = mdb.copy()
-                if success:
-                    print(f" success: {mdb.num_rules=}, {rule_bound=}")
 
                 # status update
-                print(f"({rep},{run}) of ({num_repetitions},{max_runs}): {success=}, {mdb.num_rules} <= {rule_bound}")
+                print(f"({rep},{run}) of ({num_repetitions},{max_runs}): {success=}, {rule_bound=}, {branch_point=}")
 
                 # set counters in new branch
                 branch_counters += [0] * (len(con.augment_incs) - 1 - branch_point)
@@ -94,8 +96,12 @@ if __name__ == "__main__":
                 con.rewind(con.augment_incs[branch_point])
                 scrambler.rewind(con.augment_incs[branch_point])
 
+                bound_history.append(rule_bound)
+                success_history.append(success)
+                branch_history.append(branch_point)
+
             with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "wb") as f:
-                pk.dump((mdb_best, run, rule_bound), f)
+                pk.dump((mdb_best, bound_history, success_history, branch_history), f)
 
     if showresults:
 
@@ -104,11 +110,13 @@ if __name__ == "__main__":
         num_rules = []
         for rep in range(num_repetitions):
             with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
-                (con, mdb_best, run, rule_bound) = pk.load(f)
-                print(mdb_best.num_rules)
-                num_rules.append(mdb_best.num_rules)
-        print(np.mean(num_rules))
-        print(np.std(num_rules))
+                (mdb, bounds, success, branches) = pk.load(f)
+            
+            pt.subplot(2, num_repetitions, rep+1)
+            pt.plot(bounds)
+            pt.subplot(2, num_repetitions, num_repetitions + rep+1)
+            pt.plot(branches)
+        pt.show()
 
 
 
