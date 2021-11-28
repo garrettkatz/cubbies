@@ -11,6 +11,7 @@ class Constructor:
         self.ema_threshold = ema_threshold
         self.ema_history = [0.]
         self.num_incs = 0
+        self.augment_incs = [0]
 
     def make_ω(self, mdb, r_, s_):
         return [(n,k)
@@ -49,6 +50,7 @@ class Constructor:
         elif result == False and mdb.num_rules == mdb.max_rules:
             maxed_out = True
 
+        if not ϕ: self.augment_incs.append(self.num_incs)
         self.num_incs += 1
         return ϕ, maxed_out
 
@@ -89,12 +91,14 @@ class Constructor:
         con = Constructor(self.alg, self.max_actions, self.γ, self.ema_threshold)
         con.ema_history = list(self.ema_history)
         con.num_incs = self.num_incs
+        con.augment_incs = list(self.augment_incs)
         return con
 
     def rewind(self, inc):
         # up to and including inc
         self.num_incs = inc+1
         self.ema_history = self.ema_history[:self.num_incs+1]
+        self.augment_incs = list(filter(lambda i: i <= inc, self.augment_incs))
         return self
 
     # static methods

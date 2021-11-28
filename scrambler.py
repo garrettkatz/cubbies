@@ -43,6 +43,8 @@ class AllScrambler:
 
         # reset inc
         self.inc = inc+1
+        
+        return self
 
 if __name__ == "__main__":
 
