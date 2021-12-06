@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
-    max_runs = 2**20
+    max_runs = 2**32
     branch_factor = 2
 
     dump_dir = "bnb"
