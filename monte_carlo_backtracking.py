@@ -49,16 +49,17 @@ def evaluate_factory(max_actions, domain, tree, num_problems):
             godliness.append(0 if not solved else 1 / max(1, solution_length))
 
         godliness = np.mean(godliness)
-        folkliness = 1 - mdb.num_rules / tree.size()
+        folksiness = 1 - mdb.num_rules / tree.size()
 
-        return godliness, folkliness
+        return godliness, folksiness
 
     return evaluate
 
 def σ_factory():
 
     # normalized weights on positive unit sphere
-    weights = np.random.normal(size=2)
+    # weights = np.random.normal(size=2)
+    weights = np.array([0.01, 0.99]) # folksiness
     weights = np.fabs(weights)
     weights /= np.sqrt(np.sum(weights**2))
 
