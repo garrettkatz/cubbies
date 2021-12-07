@@ -1,6 +1,3 @@
-do fork_the_best strategy again but with rule bound
-    "anytime" in the sense that root can get branched as many times as desired
-
 branch and bound more principled but seems slow to find better bounds
 
 las vegas optimal speedup doesn't seem to find more folksiness than average rollout
