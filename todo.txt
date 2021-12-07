@@ -1,3 +1,5 @@
+how many states in all half-twists?
+
 branch and bound more principled but seems slow to find better bounds
 
 las vegas optimal speedup doesn't seem to find more folksiness than average rollout
