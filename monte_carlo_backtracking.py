@@ -6,27 +6,30 @@ def mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, s
     mdb_best = Constructor.init_macro_database(domain, max_rules=max_rules)
     con_best = Constructor(alg, max_actions, γ, ema_threshold)
     σ_best = -np.inf
-    backtracks = 0
+    num_backtracks = 0
 
     history = []
     mdb, con = mdb_best, con_best
 
-    while backtracks < mdb_best.num_rules:
+    while num_backtracks < len(con_best.augment_incs):
 
         if len(history) > 0:
-            mdb = mdb_best.copy().rewind(con_best.num_incs - backtracks)
-            con = con_best.copy().rewind(con_best.num_incs - backtracks)
-            scrambler.rewind(con_best.num_incs - backtracks)
+            rewind_index = len(con_best.augment_incs) - num_backtracks
+            inc = con_best.augment_incs[rewind_index]
+
+            mdb = mdb_best.copy().rewind(inc)
+            con = con_best.copy().rewind(inc)
+            scrambler.rewind(inc)
 
         success = con.run_passes(mdb, scrambler)
         y = evaluate(mdb, alg)
-        history.append((y, σ(y)))
+        history.append((num_backtracks, y, σ(y)))
 
         if σ(y) <= σ_best:
-            backtracks += 1
+            num_backtracks += 1
         else:
             mdb_best, con_best, σ_best = mdb, con, σ(y)
-            backtracks = 1
+            num_backtracks = 1
 
     return mdb_best, history
 
@@ -83,7 +86,7 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    num_repetitions = 100
+    num_repetitions = 1000
 
     cube_str = "s120"
     # cube_str = "s5040"
@@ -128,7 +131,7 @@ if __name__ == "__main__":
             mdb_best, history = mcbt(
                 σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, scrambler)
 
-            y, σ_y = zip(*history)
+            num_backtracks, y, σ_y = zip(*history)
             y = np.array(y)
             best = np.argmax(σ_y)
             steps = 1/y[:,0]
@@ -138,7 +141,8 @@ if __name__ == "__main__":
             fewest_rules = min(fewest_rules, rules.min())
 
             # status update
-            print(f"{rep} of {num_repetitions}: σ(y)={σ_y[best]}, s,r={steps[best],rules[best]} >= {fewest_steps},{fewest_rules}")
+            print(f"{rep} of {num_repetitions}: σ(y)={σ_y[best]}, s,r={steps[best]:.3f},{rules[best]:.0f} >= {fewest_steps:.3f},{fewest_rules:.0f}")
 
             with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "wb") as f:
                 pk.dump((mdb_best, history), f)
+
