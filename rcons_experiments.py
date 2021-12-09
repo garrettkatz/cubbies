@@ -87,13 +87,13 @@ if __name__ == "__main__":
 
                 checks.append(first_fail)
                 success_rates.append(success_rate)
-                print(f" {con.num_incs} incs: First {first_fail} of {tree.size()} correct, {success_rate=:.2f}")
+                print(f" {con.num_incs} incs: First {first_fail} of {tree.size()} correct, {success_rate:.2f}")
 
                 # stop early if rules maxed out
                 if not unmaxed: break
 
             total_time = perf_counter() - start
-            print(f"{total_time=:.2f}s, {mdb.num_rules=}")
+            print(f"{total_time:.2f}s, {mdb.num_rules} rules")
 
             with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "wb") as f:
                 pk.dump((mdb, con, checks, success_rates, total_time), f)
