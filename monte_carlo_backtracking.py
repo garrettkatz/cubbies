@@ -127,7 +127,7 @@ if __name__ == "__main__":
         fewest_steps = np.inf
         fewest_rules = np.inf
 
-        from scrambler import AllScrambler
+        from scramblers import AllScrambler
 
         for rep in range(num_repetitions):
 

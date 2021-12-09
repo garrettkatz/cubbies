@@ -1,8 +1,37 @@
 import numpy as np
 
+class FolkScrambler:
+
+    def __init__(self, domain, tree, max_actions):
+        self.domain = domain
+        self.tree = tree
+        self.max_actions = max_actions
+
+        # fixed scramble length might render some states unreachable
+        # use random length where more scramble actions are more likely
+        self.probs = np.arange(max_actions+1, dtype=float)
+        self.probs /= self.probs.sum()
+    
+    def next_instance(self):
+        valid_actions = self.domain.valid_actions()
+        num_actions = np.random.choice(self.max_actions + 1, p=self.probs)
+        actions = [
+            valid_actions[np.random.choice(len(valid_actions))]
+            for _ in range(num_actions)]
+
+        new_pass = False
+        s0 = self.domain.execute(actions, self.domain.solved_state())
+        a = self.domain.reverse(actions)
+        s = [s0] + self.domain.intermediate_states(a, s0)
+
+        return new_pass, (s, a)
+
+    def rewind(self, inc):
+        return self
+
 class AllScrambler:
 
-    def __init__(self, domain, tree):
+    def __init__(self, domain, tree, max_actions=None):
         self.domain = domain
         self.tree = tree
         self.idx = []

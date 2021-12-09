@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as pt
-from scrambler import AllScrambler
+from scramblers import AllScrambler
 from macro_database import MacroDatabase
 
 class Constructor:
@@ -62,6 +62,17 @@ class Constructor:
             ema = self.γ * ema + (1. - self.γ) * int(ϕ)
             self.ema_history.append(ema)
             if maxed_out: return False
+        return True
+
+    def run_to_augment(self, mdb, scrambler):
+        ema = self.ema_history[self.num_incs]
+        while ema < self.ema_threshold:
+            _, (s, a) = scrambler.next_instance()
+            ϕ, maxed_out = self.incorporate(mdb, s, a)
+            ema = self.γ * ema + (1. - self.γ) * int(ϕ)
+            self.ema_history.append(ema)
+            if maxed_out: return False
+            if not ϕ: break # stop if augmented
         return True
 
     def run_passes(self, mdb, scrambler, verbose=False):
@@ -178,7 +189,6 @@ if __name__ == "__main__":
         s = [s0] + domain.intermediate_states(a, s0)
         return s, a
 
-    from scrambler import AllScrambler
     scrambler = AllScrambler(domain, tree)
 
     ### test persistent prototype chains

@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
         from algorithm import Algorithm
         from constructor import Constructor
-        from scrambler import AllScrambler
+        from scramblers import AllScrambler
 
         bfs_tree = SearchTree(domain, max_depth)
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
