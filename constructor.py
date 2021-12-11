@@ -75,7 +75,9 @@ class Constructor:
             if not ϕ: break # stop if augmented
         return True
 
-    def run_passes(self, mdb, scrambler, verbose=False):
+    def run_passes(self, mdb, scrambler, verbose=None):
+        # returns True if the run finished successfully (unmaxed)
+        # returns False if the run failed (maxed out)
         ema = self.ema_history[self.num_incs]
         done = False
         while True:
@@ -94,7 +96,8 @@ class Constructor:
             self.ema_history.append(ema)
 
             if maxed_out: return False
-            if verbose: print(f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
+            if verbose is not None and not ϕ:
+                print(verbose + f"{mdb.num_rules} rules, {self.num_incs} incs, done = {done}")
 
         return True
 
@@ -230,7 +233,7 @@ if __name__ == "__main__":
         mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
         cons = Constructor(alg, max_actions, γ, ema_threshold)
-        cons.run_passes(mdb, scrambler, verbose=True)
+        cons.run_passes(mdb, scrambler, verbose="")
 
         rep_times.append(perf_counter() - start)
     
@@ -263,7 +266,7 @@ if __name__ == "__main__":
     mdb = Constructor.init_macro_database(domain, max_rules=tree.size())
     alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
     cons = Constructor(alg, max_actions, γ, ema_threshold)
-    cons.run_passes(mdb, scrambler, verbose=True)
+    cons.run_passes(mdb, scrambler, verbose="")
 
     total_time = perf_counter() - start
     print(f"total time = {total_time}")

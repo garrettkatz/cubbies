@@ -177,6 +177,21 @@ class MacroDatabase:
         self.tamed[self.wildcards] = np.iinfo(int).max
         return self
 
+    def shrink_wrap(self):
+        # reduce max_rules to num_rules and shrink arrays in-place for lighter footprint
+        self.max_rules = self.num_rules
+
+        self.prototypes = self.prototypes[:self.num_rules].copy()
+        self.wildcards = self.wildcards[:self.num_rules].copy()
+        self.costs = self.costs[:self.num_rules].copy()
+        self.macros = tuple(self.macros[:self.num_rules])
+        self.permutations = self.permutations[:self.num_rules].copy()
+
+        self.added = self.added[:self.num_rules].copy()
+        self.tamed = self.tamed[:self.num_rules].copy()
+        
+        return self
+
 if __name__ == "__main__":
 
     from cube import CubeDomain
