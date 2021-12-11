@@ -45,13 +45,14 @@ if __name__ == "__main__":
         bfs_tree = SearchTree(domain, max_depth)
         alg = Algorithm(domain, bfs_tree, max_depth, color_neutral)
 
+        from time import perf_counter
+
     if do_cons:
 
         if not os.path.exists(dump_dir): os.mkdir(dump_dir)
 
         from constructor import Constructor
         from scramblers import AllScrambler, FolkScrambler
-        from time import perf_counter
 
         for rep in range(num_repetitions):
 
@@ -116,9 +117,9 @@ if __name__ == "__main__":
             correct = correct and success
             success_count = success_count + success
 
-        success_rate = success_count / tree.size() if exhaust else 1 - 1/first_fail
+        success_rate = success_count / tree.size()
         total_time = perf_counter() - start
-        print(f"{total_time:.2f}s, {mdb.num_rules} rules")
+        print(f"success rate: {success_count} / {tree.size()} = {success_rate} (correct={correct}), {total_time:.2f}s, {mdb.num_rules} rules")
 
     if showresults:
 
