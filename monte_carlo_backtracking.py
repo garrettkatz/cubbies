@@ -1,7 +1,7 @@
 import numpy as np
 from constructor import Constructor
 
-def mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, scrambler, verbose=False):
+def mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, scrambler, backtrack_delta=1, max_forks=None, verbose=False):
 
     mdb_best = Constructor.init_macro_database(domain, max_rules=max_rules)
     con_best = Constructor(alg, max_actions, γ, ema_threshold)
@@ -10,6 +10,7 @@ def mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, s
 
     history = []
     mdb, con = mdb_best, con_best
+    best, inc = 0, 0
 
     while num_backtracks < len(con_best.augment_incs):
 
@@ -21,18 +22,27 @@ def mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, s
             mdb = mdb_best.copy().rewind(inc)
             con = con_best.copy().rewind(inc)
             scrambler.rewind(inc)
+        else:
+            rewind_index = 0
 
         success = con.run_passes(mdb, scrambler)
-        y = evaluate(mdb, alg)
-        history.append((num_backtracks, y, σ(y)))
+        augments = tuple(con.augment_incs[rewind_index:])
+        y, samples = evaluate(mdb, alg)
+        σy = σ(y)
+        history.append((num_backtracks, σy, y, samples, mdb.num_rules, inc, best, con.num_incs, augments))
 
-        if σ(y) <= σ_best:
-            num_backtracks += 1
+        if σy <= σ_best:
+            num_backtracks += backtrack_delta
         else:
-            mdb_best, con_best, σ_best = mdb, con, σ(y)
+            mdb_best, con_best, σ_best = mdb, con, σy
             if verbose: print(f" {len(history)}:{num_backtracks}/{num_augment_incs} {σ_best=} ({mdb_best.num_rules} rules)")
             num_backtracks = 1
+            best = len(history) - 1
 
+        if len(history) == max_forks: break
+
+    if verbose: print(f" {len(history)}:{num_backtracks}/{num_augment_incs} {σ_best=} ({mdb_best.num_rules} rules)")
+        
     return mdb_best, history
 
 def evaluate_factory(max_actions, domain, tree, num_problems):
@@ -43,20 +53,20 @@ def evaluate_factory(max_actions, domain, tree, num_problems):
         return state
 
     def evaluate(mdb, alg):
-        godliness = []
-
+        solved = np.empty(num_problems)
+        length = np.empty(num_problems)
         for p in range(num_problems):
             state = problem()
-            solved, plan, _, _ = alg.run(max_actions, mdb, state)
-            solution_length = sum([
+            solved[p], plan, _, _ = alg.run(max_actions, mdb, state)
+            length[p] = sum([
                 len(actions) + len(macro)
                 for _, actions, macro in plan])
-            godliness.append(0 if not solved else 1 / max(1, solution_length))
 
-        godliness = np.mean(godliness)
+        # godliness = np.where(solved, 1 / np.maximum(1, length), 0).mean()
+        godliness = 1 - np.where(solved, length, max_actions).mean() / max_actions
         folksiness = 1 - mdb.num_rules / tree.size()
 
-        return godliness, folksiness
+        return (godliness, folksiness), (solved, length)
 
     return evaluate
 
@@ -80,26 +90,28 @@ if __name__ == "__main__":
     from cube import CubeDomain
 
     do_cons = True
-    showresults = True
+    showresults = False
     confirm = False
 
     γ = 0.9
     ema_threshold = 1.0
     max_depth = 1
-    max_actions = 20
+    max_actions = 30
     color_neutral = False
 
-    num_repetitions = 1
+    max_forks = 256
+    backtrack_delta = 32
+    num_repetitions = 128
 
-    cube_str = "s120"
-    # cube_str = "s5040"
+    # cube_str = "s120"
+    cube_str = "s5040"
     # cube_str = "s29k"
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
     dump_dir = "mcb"
-    dump_base = "N%d%s_D%d_M%d_cn%d" % (
-        cube_size, cube_str, tree_depth, max_depth, color_neutral)
+    dump_base = "N%d%s_D%d_M%d_cn%d_mf%d_bd%d" % (
+        cube_size, cube_str, tree_depth, max_depth, color_neutral, max_forks, backtrack_delta)
 
     if do_cons or confirm:
 
@@ -121,124 +133,212 @@ if __name__ == "__main__":
 
         if not os.path.exists(dump_dir): os.mkdir(dump_dir)
 
-        num_problems = 64
+        num_problems = 120
         evaluate = evaluate_factory(max_actions, domain, tree, num_problems)
 
         fewest_steps = np.inf
         fewest_rules = np.inf
 
+        from time import perf_counter
         from scramblers import AllScrambler
 
         for rep in range(num_repetitions):
 
+            start = perf_counter()
+
             scrambler = AllScrambler(domain, tree)
 
             σ, weights = σ_factory()
-            mdb_best, history = mcbt(
-                σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, scrambler,
-                verbose=True)
+            mdb_best, history = mcbt(σ, evaluate, max_rules, alg, max_actions, γ, ema_threshold, domain, scrambler, backtrack_delta, max_forks, verbose=True)
 
-            num_backtracks, y, σ_y = zip(*history)
+            (num_backtracks, σy, y, samples, num_rules, fork_incs, best_forks, num_incs, augments) = zip(*history)
             y = np.array(y)
-            best = np.argmax(σ_y)
-            steps = 1/y[:,0]
+            best = np.argmax(σy)
+            # steps = 1/y[:,0]
+            steps = (1 - y[:,0])*max_actions
             rules = (1 - y[:,1])*tree.size()
 
             fewest_steps = min(fewest_steps, steps.min())
             fewest_rules = min(fewest_rules, rules.min())
 
-            # status update
-            print(f"{rep} of {num_repetitions}: σ(y)={σ_y[best]}, s,r={steps[best]:.3f},{rules[best]:.0f} >= {fewest_steps:.3f},{fewest_rules:.0f}")
+            total_time = perf_counter() - start
 
-            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "wb") as f:
-                pk.dump((mdb_best, history), f)
+            # status update
+            print(f"{rep} of {num_repetitions} ({total_time:.2f}s): σ(y)={σy[best]}, s,r={steps[best]:.3f},{rules[best]:.0f} >= {fewest_steps:.3f},{fewest_rules:.0f}")
+
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_mdb.pkl"), "wb") as f: pk.dump(mdb_best, f)
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "wb") as f: pk.dump((history, weights, tree.size(), total_time), f)
+
+    if confirm:
+
+        folksy_mdb = None
+        for rep in range(num_repetitions):
+            print(f"loading rep {rep}")
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_mdb.pkl"), "rb") as f: mdb_best = pk.load(f)
+            if folksy_mdb is None or mdb_best.num_rules < folksy_mdb.num_rules: folksy_mdb = mdb_best
+        print("folksy num_rules:", folksy_mdb.num_rules)
+
+        print("confirming...")
+        correct = True
+        for i in range(tree.size()):
+            state = domain.solved_state()[tree.permutations()[i]]
+            success, _, _, _ = alg.run(max_actions, folksy_mdb, state)
+            correct = correct and success
+        print(f"correct = {correct}")
+
+        print("folksy num_rules:", folksy_mdb.num_rules)
 
     if showresults:
 
         import matplotlib.pyplot as pt
 
-        # scalarization curves
-        mdb_bests, histories = [], []
+        histories = []
         for rep in range(num_repetitions):
-            print(rep)
-            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
-                (mdb_best, history) = pk.load(f)
-            mdb_bests.append(mdb_best)
+            print(f"loading rep {rep}")
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "rb") as f:
+                (history, weights, tree_size, total_time) = pk.load(f)
             histories.append(history)
-            if rep == 50: break
+            # if rep == 50: break
 
-        initials, finals = [], []
+        # objective space
+        bests = []
         for rep in range(len(histories)):
-            mdb_best = mdb_bests[rep]
-            history = histories[rep]
-
-            num_backtracks, y, σ_y = zip(*history)
+            (num_backtracks, σy, y, samples, rule_counts, fork_incs, best_forks, num_incs, augments) = zip(*histories[rep])
+            num_rules, avg_length = [], []
+            for s in range(len(samples)):
+                num_rules.append(rule_counts[s])
+                solved, length = samples[s]
+                avg_length.append(np.where(solved, length, max_actions).mean())
+            pt.subplot(1,2,1)
+            pt.plot(num_rules, avg_length, 'o', color=(.5,)*3)
+            pt.subplot(1,2,2)
             y = np.array(y)
-            σ_y = np.array(σ_y)
-
-            w = 10
-            ma = σ_y.cumsum()
-            ma = (ma[w:] - ma[:-w])/w
-
-            pt.subplot(1,4,1)
-            # pt.plot(ma)
-            # pt.ylabel("moving average σ")
-            pt.plot(σ_y)
-            pt.ylabel("σ")
-            pt.xlabel("fork")
-
-            pt.subplot(1,4,2)
-            pt.plot(num_backtracks)
-            pt.ylabel("num backtracks")
-            pt.xlabel("fork")
-
-            initials.append(σ_y[0])
-            finals.append(σ_y.max())
-
-        pt.subplot(1,4,3)
-        pt.plot(initials, finals, 'k.')
-        pt.xlabel("initial σ")
-        pt.ylabel("best σ")
-
-        pt.subplot(1,4,4)
-        pt.hist((initials, finals))
-        pt.xlabel("σ")
-        pt.ylabel("freq")
-        pt.legend(["initial", "best"])
-
+            pt.plot(y[:,1], y[:,0], 'o', color=(.5,)*3)
+            best = np.argmax(σy)
+            pt.plot(y[best,1], y[best,0], 'o', color=(0,)*3)
+            bests.append((num_rules[best], avg_length[best]))
+        num_rules, avg_length = zip(*bests)
+        pt.subplot(1,2,1)
+        pt.plot(num_rules, avg_length, 'o', color=(0,)*3)
+        pt.xlabel("Rule count")
+        pt.ylabel("Avg. Soln. Length")
+        pt.subplot(1,2,2)
+        pt.xlabel("Folksiness")
+        pt.ylabel("Godliness")
+        pt.tight_layout()
         pt.show()
+
+        # # scalarization curves
+        # initials, finals = [], []
+        # for rep in range(len(histories)):
+        #     mdb_best = mdb_bests[rep]
+        #     history = histories[rep]
+
+        #     num_backtracks, y, σy = zip(*history)
+        #     y = np.array(y)
+        #     σy = np.array(σy)
+
+        #     w = 10
+        #     ma = σy.cumsum()
+        #     ma = (ma[w:] - ma[:-w])/w
+
+        #     pt.subplot(1,4,1)
+        #     # pt.plot(ma)
+        #     # pt.ylabel("moving average σ")
+        #     pt.plot(σy)
+        #     pt.ylabel("σ")
+        #     pt.xlabel("fork")
+
+        #     pt.subplot(1,4,2)
+        #     pt.plot(num_backtracks)
+        #     pt.ylabel("num backtracks")
+        #     pt.xlabel("fork")
+
+        #     initials.append(σy[0])
+        #     finals.append(σy.max())
+
+        # pt.subplot(1,4,3)
+        # pt.plot(initials, finals, 'k.')
+        # pt.xlabel("initial σ")
+        # pt.ylabel("best σ")
+
+        # pt.subplot(1,4,4)
+        # pt.hist((initials, finals))
+        # pt.xlabel("σ")
+        # pt.ylabel("freq")
+        # pt.legend(["initial", "best"])
+
+        # pt.show()
 
         # # scalarization tree
         # rep = 0
-        # with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
-        #     (mdb_best, history) = pk.load(f)
+        # with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "rb") as f:
+        #     (history, weights, tree_size, total_time) = pk.load(f)
 
-        # num_backtracks, y, σ_y = zip(*history)
-        # y = np.array(y)
-        # σ_y = np.array(σ_y)
+        # (num_backtracks, σy, y, samples, rule_counts, fork_inc, best_fork, num_incs, augments) = zip(*history)
 
-        # local_best = [0]
-        # for i in range(1, len(σ_y)):
-        #     if σ_y[i] > local_best[-1]:
-        #         local_best.append(σ_y[i])
+        # for n in range(len(history)):
+        #     i = best_fork[n]
+        #     while fork_inc[n] < fork_inc[i]: i = best_fork[i]
+        #     pt.plot(
+        #         [fork_inc[i], fork_inc[i], num_incs[n]],
+        #         [σy[i], σy[n], σy[n]],
+        #         '-', color=(.75 - .5 * n / len(history),)*3)
+        #         # '-', color=(.75 * n / len(leaves),)*3)
+        #         # '-', color=(.5,)*3)
+
+        # n = np.argmax(σy)
+        # inc = num_incs[n]
+        # while True:
+        #     i = best_fork[n]
+        #     while fork_inc[n] < fork_inc[i]: i = best_fork[i]
+        #     pt.plot(
+        #         [fork_inc[i], fork_inc[i], inc],
+        #         [σy[i], σy[n], σy[n]],
+        #         '-', color=(.0,)*3)
+        #     if n == 0: break
+        #     n = i
+        #     inc = fork_inc[i]
+
+        # pt.xlabel("Number of modifications")
+        # pt.ylabel("Scalarization value")
+
+        # # pt.savefig("ftb_%s.pdf" % dump_name)
+        # pt.show()
+
+        # augment tree
+        rep = 0
+        with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "rb") as f:
+            (history, weights, tree_size, total_time) = pk.load(f)
+
+        (num_backtracks, σy, y, samples, rule_counts, fork_inc, best_fork, num_incs, augments) = zip(*history)
+
+        pt.subplot(1,2,1)
+        for n in range(len(history)):
+            # color = (.5,)*3
+            color = (0,)*3
+            pt.plot(
+                [fork_inc[n], fork_inc[n], num_incs[n]],
+                [best_fork[n], n, n],
+                '-', color=color)
+            pt.plot(augments[n], [n]*len(augments[n]), '+', color=color)
+
+        n = np.argmax(σy)
+        pt.plot(num_incs[n], n, 'ko')
+
+        pt.ylim([-1, len(history)])
+        pt.xlabel("Incorporations")
+        pt.ylabel("Forks")
+
+        pt.subplot(1,2,2)
+        pt.barh(np.arange(len(history)), σy, height=.25, ec='k', fc='k')
+        pt.yticks([], [])
+        pt.ylim([-1, len(history)])
+        pt.xlabel("σ(y)")
+
+        pt.tight_layout()
+        # pt.savefig("ftb_%s.pdf" % dump_name)
+        pt.show()
+
         
-    if confirm:
-
-        folksy_mdb = None
-        folksy_σ = 0
-        for rep in range(num_repetitions):
-            print(rep)
-            with open(os.path.join(dump_dir, dump_base + f"_{rep}.pkl"), "rb") as f:
-                (mdb_best, history) = pk.load(f)
-            num_backtracks, y, σ_y = zip(*history)
-            if folksy_σ < max(σ_y):
-                folksy_σ = max(σ_y)
-                folksy_mdb = mdb_best
-
-        print("num_rules:", folksy_mdb.num_rules)
-        
-        for i in range(tree.size()):
-            state = domain.solved_state()[tree.permutations()[i]]
-            success, plan, rule_indices, triggerers = alg.run(max_actions, folksy_mdb, state)
-            assert success
-        print("success!")
+    
