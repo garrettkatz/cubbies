@@ -10,8 +10,9 @@ class Constructor:
         self.γ = γ
         self.ema_threshold = ema_threshold
         self.ema_history = [0.]
-        self.num_incs = 0
         self.augment_incs = [0]
+        self.rule_counts = [1]
+        self.num_incs = 1
 
     def make_ω(self, mdb, r_, s_):
         return [(n,k)
@@ -51,11 +52,12 @@ class Constructor:
             maxed_out = True
 
         if not ϕ: self.augment_incs.append(self.num_incs)
+        self.rule_counts.append(mdb.num_rules)
         self.num_incs += 1
         return ϕ, maxed_out
 
     def run(self, mdb, scramble):
-        ema = self.ema_history[self.num_incs]
+        ema = self.ema_history[self.num_incs-1]
         while ema < self.ema_threshold:
             s, a = scramble(self.max_actions - self.alg.max_depth)
             ϕ, maxed_out = self.incorporate(mdb, s, a)
@@ -65,7 +67,7 @@ class Constructor:
         return True
 
     def run_to_augment(self, mdb, scrambler):
-        ema = self.ema_history[self.num_incs]
+        ema = self.ema_history[self.num_incs-1]
         while ema < self.ema_threshold:
             _, (s, a) = scrambler.next_instance()
             ϕ, maxed_out = self.incorporate(mdb, s, a)
@@ -78,7 +80,7 @@ class Constructor:
     def run_passes(self, mdb, scrambler, verbose=None):
         # returns True if the run finished successfully (unmaxed)
         # returns False if the run failed (maxed out)
-        ema = self.ema_history[self.num_incs]
+        ema = self.ema_history[self.num_incs-1]
         done = False
         while True:
 

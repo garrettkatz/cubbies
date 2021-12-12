@@ -63,8 +63,8 @@ def evaluate_factory(max_actions, domain, tree, num_problems):
 def σ_factory():
 
     # normalized weights on positive unit sphere
-    # weights = np.random.normal(size=2)
-    weights = np.array([0.01, 0.99]) # folksiness
+    weights = np.random.normal(size=2)
+    # weights = np.array([0.01, 0.99]) # folksiness
     weights = np.fabs(weights)
     weights /= np.sqrt(np.sum(weights**2))
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     from cube import CubeDomain
 
     do_cons = True
-    showresults = False
+    showresults = True
     confirm = False
 
     γ = 0.9
@@ -89,10 +89,10 @@ if __name__ == "__main__":
     max_actions = 20
     color_neutral = False
 
-    num_repetitions = 100
+    num_repetitions = 1
 
-    # cube_str = "s120"
-    cube_str = "s5040"
+    cube_str = "s120"
+    # cube_str = "s5040"
     # cube_str = "s29k"
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
@@ -181,19 +181,30 @@ if __name__ == "__main__":
             ma = (ma[w:] - ma[:-w])/w
 
             pt.subplot(1,4,1)
-            pt.plot(ma)
+            # pt.plot(ma)
+            # pt.ylabel("moving average σ")
+            pt.plot(σ_y)
+            pt.ylabel("σ")
+            pt.xlabel("fork")
 
             pt.subplot(1,4,2)
             pt.plot(num_backtracks)
+            pt.ylabel("num backtracks")
+            pt.xlabel("fork")
 
             initials.append(σ_y[0])
             finals.append(σ_y.max())
 
         pt.subplot(1,4,3)
         pt.plot(initials, finals, 'k.')
+        pt.xlabel("initial σ")
+        pt.ylabel("best σ")
 
         pt.subplot(1,4,4)
         pt.hist((initials, finals))
+        pt.xlabel("σ")
+        pt.ylabel("freq")
+        pt.legend(["initial", "best"])
 
         pt.show()
 
