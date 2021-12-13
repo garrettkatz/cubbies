@@ -96,16 +96,22 @@ if __name__ == "__main__":
     γ = 0.9
     ema_threshold = 1.0
     max_depth = 1
-    max_actions = 30
     color_neutral = False
 
+    # cube_str = "s120"
+
+    # cube_str = "s5040"
+    # max_forks = 256
+    # backtrack_delta = 32
+    # num_repetitions = 128
+    # max_actions = 30
+
+    cube_str = "s29k"
     max_forks = 256
     backtrack_delta = 32
-    num_repetitions = 128
+    num_repetitions = 16
+    max_actions = 50
 
-    # cube_str = "s120"
-    cube_str = "s5040"
-    # cube_str = "s29k"
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
@@ -195,7 +201,9 @@ if __name__ == "__main__":
         histories = []
         for rep in range(num_repetitions):
             print(f"loading rep {rep}")
-            with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "rb") as f:
+            fname = os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl")
+            if not os.path.exists(fname): continue
+            with open(fname, "rb") as f:
                 (history, weights, tree_size, total_time) = pk.load(f)
             histories.append(history)
             # if rep == 50: break

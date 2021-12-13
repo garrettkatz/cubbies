@@ -337,7 +337,7 @@ class CubeDomain:
             )
             tree_depth = 13
 
-        if key == "s29k":        
+        if key == "s29k":
             # pocket cube: two axes with quarter twists, one fixed
             # 29k states, reached in max_depth=14
             cube_size = 2
