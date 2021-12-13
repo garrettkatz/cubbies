@@ -172,6 +172,7 @@ if __name__ == "__main__":
             # status update
             print(f"{rep} of {num_repetitions} ({total_time:.2f}s): σ(y)={σy[best]}, s,r={steps[best]:.3f},{rules[best]:.0f} >= {fewest_steps:.3f},{fewest_rules:.0f}")
 
+            mdb_best = mdb_best.shrink_wrap()
             with open(os.path.join(dump_dir, dump_base + f"_{rep}_mdb.pkl"), "wb") as f: pk.dump(mdb_best, f)
             with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "wb") as f: pk.dump((history, weights, tree.size(), total_time), f)
 
