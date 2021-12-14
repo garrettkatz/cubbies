@@ -6,9 +6,9 @@ if __name__ == "__main__":
     import pickle as pk
     from cube import CubeDomain
 
-    do_cons = True
+    do_cons = False
     showresults = True
-    confirm = True
+    confirm = False
 
     γ = 0.99
     ema_threshold = 1.1
@@ -22,8 +22,8 @@ if __name__ == "__main__":
 
     # cube_str = "s120"
     # cube_str = "s5040"
-    cube_str = "s29k"
-    # cube_str = "pocket"
+    # cube_str = "s29k"
+    cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
     dump_dir = "rce"
@@ -118,6 +118,7 @@ if __name__ == "__main__":
 
     if showresults:
 
+        import glob
         import matplotlib.pyplot as pt
         from matplotlib import rcParams
         rcParams['font.family'] = 'serif'
@@ -132,35 +133,21 @@ if __name__ == "__main__":
             with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
                 (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
     
-            static_steps = tuple(con.augment_incs[i+1] - con.augment_incs[i] - 1 for i in range(len(con.augment_incs)-1))
-            static_steps += (con.num_incs - con.augment_incs[-1],)
-    
             success_rates = tuple(count / tree_size for count in success_counts)
             confirm_incs += (con.num_incs,)
             success_rates += (success_rates[-1],)
     
-            thresh_probs = []
-            thresh = .99
-            # thresh = 1
-            N = tree_size
-            for inc in range(con.num_incs):
-                last_augment = max(i for i in con.augment_incs if i <= inc)
-                t = inc - last_augment
-                R = con.rule_counts[inc]
-    
-                numer = N/(t+1) * (1 - thresh**(t+1)) + 1
-                denom = N/(t+1) * (1 - (R / N)**(t+1)) + 1
-                thresh_probs.append(numer / denom)
-    
             pt.figure(figsize=(3.5, 1.5))
-            pt.plot(confirm_incs, success_rates, '-o', color=(.75,)*3, label="Success Rate")
             # pt.step(
             #     confirm_incs, success_rates, '-o', where="post", color=(.75,)*3, label="Success Rate")
             # pt.plot(con.ema_history, '-', color=(0,)*3, label="EMA")
-            # pt.plot(confirm_incs[:-1], thresh_probs, '--', color=(0,)*3, label=f"Pr(k/N $\geq$ {thresh:.2f})")
-            pt.plot(thresh_probs, '--', color=(0,)*3, label=f"Pr(k/N $\geq$ {thresh:.2f})")
+            if cube_str == "pocket":
+                pt.plot(range(0,len(con.ema_history),1000), con.ema_history[::1000], '-', color=(.75,)*3, label="EMA")
+            else:
+                pt.plot(con.ema_history, '-', color=(.75,)*3, label="EMA")
+            pt.plot(confirm_incs, success_rates, '-', color=(0,)*3, label="Success Rate")
             pt.legend(fontsize=10, loc='lower right')
-            pt.plot([con.num_incs - tree_size]*2, [0, 1], 'k--')
+            # pt.plot([con.num_incs - tree_size]*2, [0, 1], 'k--')
             pt.ylabel("Correct")
             pt.xlabel("Number of incorporations")
             pt.yticks([0, 0.5, 1.0])
@@ -169,60 +156,98 @@ if __name__ == "__main__":
             pt.show()
             pt.close()
 
-        # # convergence histograms
-        # data = []
-        # varphi_stops, varphi_threshes = [], []
-        # all_success_rates, all_emas = [], []
+        # # show one cons run with prob model
         # for rep in range(num_repetitions):
+        #     if rep == 1: break
         #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
         #         (con, unmaxed, total_time, num_rules) = pk.load(f)
         #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
         #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
+    
+        #     static_steps = tuple(con.augment_incs[i+1] - con.augment_incs[i] - 1 for i in range(len(con.augment_incs)-1))
+        #     static_steps += (con.num_incs - con.augment_incs[-1],)
+    
+        #     success_rates = tuple(count / tree_size for count in success_counts)
+        #     confirm_incs += (con.num_incs,)
+        #     success_rates += (success_rates[-1],)
+    
+        #     thresh_probs = []
+        #     thresh = .99
+        #     # thresh = 1
+        #     N = tree_size
+        #     for inc in range(con.num_incs):
+        #         last_augment = max(i for i in con.augment_incs if i <= inc)
+        #         t = inc - last_augment
+        #         R = con.rule_counts[inc]
+    
+        #         numer = N/(t+1) * (1 - thresh**(t+1)) + 1
+        #         denom = N/(t+1) * (1 - (R / N)**(t+1)) + 1
+        #         thresh_probs.append(numer / denom)
+    
+        #     pt.figure(figsize=(3.5, 1.5))
+        #     pt.plot(confirm_incs, success_rates, '-o', color=(.75,)*3, label="Success Rate")
+        #     # pt.step(
+        #     #     confirm_incs, success_rates, '-o', where="post", color=(.75,)*3, label="Success Rate")
+        #     # pt.plot(con.ema_history, '-', color=(0,)*3, label="EMA")
+        #     # pt.plot(confirm_incs[:-1], thresh_probs, '--', color=(0,)*3, label=f"Pr(k/N $\geq$ {thresh:.2f})")
+        #     pt.plot(thresh_probs, '--', color=(0,)*3, label=f"Pr(k/N $\geq$ {thresh:.2f})")
+        #     pt.legend(fontsize=10, loc='lower right')
+        #     pt.plot([con.num_incs - tree_size]*2, [0, 1], 'k--')
+        #     pt.ylabel("Correct")
+        #     pt.xlabel("Number of incorporations")
+        #     pt.yticks([0, 0.5, 1.0])
+        #     pt.tight_layout()
+        #     if rep == 0: pt.savefig(f"rcons_{dump_base}_{rep}.pdf")
+        #     pt.show()
+        #     pt.close()
 
-        #     data.append(confirm_incs[-1])
+        # convergence histograms
+        data = []
+        varphi_stops, varphi_threshes = [], []
+        all_success_rates, all_emas = [], []
+        # for rep in range(num_repetitions):        
+        for rep in range(len(glob.glob(os.path.join(dump_dir, dump_base + "_*_con.pkl")))):
+            print(rep)
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
+                (con, unmaxed, total_time, num_rules) = pk.load(f)
+            with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
+                (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
+
+            data.append(confirm_incs[-1])
             
-        #     thresh = .9
-        #     near_inc = np.argmax([ema > thresh for ema in con.ema_history])
-        #     near_aug = np.argmax([inc > near_inc for inc in confirm_incs]) - 1
-        #     if con.ema_history[near_inc] > thresh:
-        #         varphi_stops.append(confirm_incs[near_aug])
-        #         varphi_threshes.append(con.ema_history[near_inc])
-        #     else:
-        #         print(rep, max(con.ema_history), con.ema_history[near_inc])
+            thresh = .9
+            near_inc = np.argmax([ema > thresh for ema in con.ema_history])
+            near_aug = np.argmax([inc > near_inc for inc in confirm_incs]) - 1
+            if con.ema_history[near_inc] > thresh:
+                varphi_stops.append(confirm_incs[near_aug])
+                varphi_threshes.append(con.ema_history[near_inc])
+            else:
+                print(rep, max(con.ema_history), con.ema_history[near_inc])
             
-        #     all_success_rates += [count / tree_size for count in success_counts]
-        #     all_emas += emas
+            all_success_rates += [count / tree_size for count in success_counts]
+            all_emas += emas
 
-        # fig = pt.figure(figsize=(3.5, 3))
-        # gs = fig.add_gridspec(2,2)
-        # ax = fig.add_subplot(gs[0,:])
-        # # pt.hist(data, bins = np.arange(0,max(data),500), color=(1,)*3, ec='k', rwidth=.75, align="left")
-        # pt.hist(data, color=(1,)*3, ec='k', rwidth=.75, align="left")
-        # pt.xlabel("Convergence Incs")
-        # pt.ylabel("Frequency")
+        fig = pt.figure(figsize=(3.5, 3))
+        gs = fig.add_gridspec(2,2)
+        ax = fig.add_subplot(gs[0,:])
+        # pt.hist(data, bins = np.arange(0,max(data),500), color=(1,)*3, ec='k', rwidth=.75, align="left")
+        pt.hist(data, color=(1,)*3, ec='k', rwidth=.75, align="left")
+        pt.xlabel("Convergence Incs")
+        pt.ylabel("Frequency")
 
-        # ax = fig.add_subplot(gs[1,0])
-        # pt.plot(varphi_stops, varphi_threshes, 'k.')
-        # pt.xlabel("0.99 Convergence Time")
-        # pt.ylabel("EMA")
-        # # pt.xticks([0, 5000])
+        ax = fig.add_subplot(gs[1,0])
+        pt.plot(varphi_stops, varphi_threshes, 'k.')
+        pt.xlabel("0.99 Convergence Time")
+        pt.ylabel("EMA")
+        # pt.xticks([0, 5000])
 
-        # idx = np.random.permutation(len(all_emas))[:1000]
-        # ax = fig.add_subplot(gs[1,1])
-        # pt.plot(np.array(all_success_rates)[idx], np.array(all_emas)[idx], 'k.')
-        # pt.xlabel("Correctness")
-        # pt.ylabel("EMA")
+        idx = np.random.permutation(len(all_emas))[:1000]
+        ax = fig.add_subplot(gs[1,1])
+        pt.plot(np.array(all_success_rates)[idx], np.array(all_emas)[idx], 'k.')
+        pt.xlabel("Correctness")
+        pt.ylabel("EMA")
 
-        # pt.tight_layout()
-        # pt.savefig("rcons_%s_hist.pdf" % cube_str)
-        # pt.show()
-            
-        # # testing probabilistic success rate model
-        # for rep in range(num_repetitions):
-        #     if rep > 0: break
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
-        #         (con, unmaxed, total_time, num_rules) = pk.load(f)
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
-        #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, N) = pk.load(f)
-
+        pt.tight_layout()
+        pt.savefig("rcons_%s_hist.pdf" % cube_str)
+        pt.show()
             

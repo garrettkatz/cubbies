@@ -89,8 +89,8 @@ if __name__ == "__main__":
     import pickle as pk
     from cube import CubeDomain
 
-    do_cons = True
-    showresults = False
+    do_cons = False
+    showresults = True
     confirm = False
 
     γ = 0.9
@@ -98,7 +98,11 @@ if __name__ == "__main__":
     max_depth = 1
     color_neutral = False
 
-    # cube_str = "s120"
+    cube_str = "s120"
+    max_forks = 300
+    backtrack_delta = 1
+    num_repetitions = 20
+    max_actions = 30
 
     # cube_str = "s5040"
     # max_forks = 256
@@ -106,11 +110,11 @@ if __name__ == "__main__":
     # num_repetitions = 128
     # max_actions = 30
 
-    cube_str = "s29k"
-    max_forks = 256
-    backtrack_delta = 32
-    num_repetitions = 16
-    max_actions = 50
+    # cube_str = "s29k"
+    # max_forks = 256
+    # backtrack_delta = 32
+    # num_repetitions = 16
+    # max_actions = 50
 
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
@@ -198,6 +202,10 @@ if __name__ == "__main__":
     if showresults:
 
         import matplotlib.pyplot as pt
+        from matplotlib import rcParams
+        rcParams['font.family'] = 'serif'
+        rcParams['font.size'] = 11
+        rcParams['text.usetex'] = True
 
         histories = []
         for rep in range(num_repetitions):
@@ -210,6 +218,7 @@ if __name__ == "__main__":
             # if rep == 50: break
 
         # objective space
+        pt.figure(figsize=(3.5, 3.25))
         bests = []
         for rep in range(len(histories)):
             (num_backtracks, σy, y, samples, rule_counts, fork_incs, best_forks, num_incs, augments) = zip(*histories[rep])
@@ -218,24 +227,26 @@ if __name__ == "__main__":
                 num_rules.append(rule_counts[s])
                 solved, length = samples[s]
                 avg_length.append(np.where(solved, length, max_actions).mean())
-            pt.subplot(1,2,1)
-            pt.plot(num_rules, avg_length, 'o', color=(.5,)*3)
-            pt.subplot(1,2,2)
-            y = np.array(y)
-            pt.plot(y[:,1], y[:,0], 'o', color=(.5,)*3)
             best = np.argmax(σy)
-            pt.plot(y[best,1], y[best,0], 'o', color=(0,)*3)
             bests.append((num_rules[best], avg_length[best]))
+            # pt.subplot(1,2,1)
+            pt.plot(num_rules, avg_length, 'o', color=(.5,)*3)
+            # pt.subplot(1,2,2)
+            # y = np.array(y)
+            # pt.plot(y[:,1], y[:,0], 'o', color=(.5,)*3)
+            # pt.plot(y[best,1], y[best,0], 'o', color=(0,)*3)
         num_rules, avg_length = zip(*bests)
-        pt.subplot(1,2,1)
+        # pt.subplot(1,2,1)
         pt.plot(num_rules, avg_length, 'o', color=(0,)*3)
         pt.xlabel("Rule count")
         pt.ylabel("Avg. Soln. Length")
-        pt.subplot(1,2,2)
-        pt.xlabel("Folksiness")
-        pt.ylabel("Godliness")
+        # pt.subplot(1,2,2)
+        # pt.xlabel("Folksiness")
+        # pt.ylabel("Godliness")
         pt.tight_layout()
+        pt.savefig(f"ftb_{cube_str}_pareto.pdf")
         pt.show()
+        pt.close()
 
         # # scalarization curves
         # initials, finals = [], []
@@ -316,13 +327,16 @@ if __name__ == "__main__":
         # pt.show()
 
         # augment tree
+        fig = pt.figure(figsize=(3.5, 5))
+        gs = fig.add_gridspec(1,3)
         rep = 0
         with open(os.path.join(dump_dir, dump_base + f"_{rep}_hst.pkl"), "rb") as f:
             (history, weights, tree_size, total_time) = pk.load(f)
 
         (num_backtracks, σy, y, samples, rule_counts, fork_inc, best_fork, num_incs, augments) = zip(*history)
 
-        pt.subplot(1,2,1)
+        # pt.subplot(1,2,1)
+        ax = fig.add_subplot(gs[0,:2])
         for n in range(len(history)):
             # color = (.5,)*3
             color = (0,)*3
@@ -339,14 +353,17 @@ if __name__ == "__main__":
         pt.xlabel("Incorporations")
         pt.ylabel("Forks")
 
-        pt.subplot(1,2,2)
-        pt.barh(np.arange(len(history)), σy, height=.25, ec='k', fc='k')
+        # pt.subplot(1,2,2)
+        ax = fig.add_subplot(gs[0,2])
+        # pt.barh(np.arange(len(history)), σy, height=.25, ec='k', fc='k')
+        pt.plot(σy, np.arange(len(history)), 'k-')
         pt.yticks([], [])
         pt.ylim([-1, len(history)])
-        pt.xlabel("σ(y)")
+        # pt.xlabel("σ(y)")
+        pt.xlabel("$\sigma(y)$")
 
         pt.tight_layout()
-        # pt.savefig("ftb_%s.pdf" % dump_name)
+        pt.savefig(f"ftb_{cube_str}_mcbt.pdf")
         pt.show()
 
         
