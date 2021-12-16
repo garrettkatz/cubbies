@@ -98,11 +98,11 @@ if __name__ == "__main__":
     max_depth = 1
     color_neutral = False
 
-    cube_str = "s120"
-    max_forks = 300
-    backtrack_delta = 1
-    num_repetitions = 20
-    max_actions = 30
+    # cube_str = "s120"
+    # max_forks = 300
+    # backtrack_delta = 1
+    # num_repetitions = 20
+    # max_actions = 30
 
     # cube_str = "s5040"
     # max_forks = 256
@@ -110,11 +110,11 @@ if __name__ == "__main__":
     # num_repetitions = 128
     # max_actions = 30
 
-    # cube_str = "s29k"
-    # max_forks = 256
-    # backtrack_delta = 32
-    # num_repetitions = 16
-    # max_actions = 50
+    cube_str = "s29k"
+    max_forks = 256
+    backtrack_delta = 32
+    num_repetitions = 16
+    max_actions = 50
 
     # cube_str = "pocket"
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)

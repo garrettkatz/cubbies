@@ -40,16 +40,17 @@ class Constructor:
                 (n, k) = ω[np.random.choice(len(ω))]
                 mdb.disable(r_[n], k, tamed=self.num_incs)
 
-        result = self.alg.rule_search(mdb, s[0])
-
-        if result == False and mdb.num_rules < mdb.max_rules:
-            ϕ = False
-            τ = self.make_τ(mdb, s)
-            (t, r) = τ[np.random.choice(len(τ))]
-            mdb.add_rule(s[0], a[:t], t + mdb.costs[r], added=self.num_incs)
-
-        elif result == False and mdb.num_rules == mdb.max_rules:
-            maxed_out = True
+        else:
+            result = self.alg.rule_search(mdb, s[0])
+    
+            if result == False and mdb.num_rules < mdb.max_rules:
+                ϕ = False
+                τ = self.make_τ(mdb, s)
+                (t, r) = τ[np.random.choice(len(τ))]
+                mdb.add_rule(s[0], a[:t], t + mdb.costs[r], added=self.num_incs)
+    
+            elif result == False and mdb.num_rules == mdb.max_rules:
+                maxed_out = True
 
         if not ϕ: self.augment_incs.append(self.num_incs)
         self.rule_counts.append(mdb.num_rules)

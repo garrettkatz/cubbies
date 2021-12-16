@@ -26,11 +26,11 @@ if __name__ == "__main__":
     # num_confirm_incs = 50
     # num_repetitions = 1
 
-    cube_str = "s29k"
+    # cube_str = "s29k"
 
-    # cube_str = "pocket"
-    # num_confirm_incs = 10
-    # num_repetitions = 1
+    cube_str = "pocket" # can be "s120", "s5040", "s29k", or "pocket"
+    num_confirm_incs = 10
+    num_repetitions = 30
 
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
@@ -133,60 +133,134 @@ if __name__ == "__main__":
         rcParams['font.size'] = 11
         rcParams['text.usetex'] = True
 
-        num_reps = len(glob.glob(os.path.join(dump_dir, dump_base + "_*_con.pkl")))
+        num_reps = min(num_repetitions, len(glob.glob(os.path.join(dump_dir, dump_base + "_*_con.pkl"))))
 
-        # # show one cons run
-        # for rep in range(num_reps):
-        #     if rep == 1: break
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
-        #         (con, unmaxed, total_time, num_rules) = pk.load(f)
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
-        #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
-    
-        #     success_rates = tuple(count / tree_size for count in success_counts)
-        #     confirm_incs += (con.num_incs,)
-        #     success_rates += (success_rates[-1],)
-    
-        #     pt.figure(figsize=(3.5, 1.5))
-        #     # for inc in con.augment_incs:
-        #     #     pt.plot([inc, inc], [0, 1], '-', color=(.8,)*3)
-        #     for inc in confirm_incs:
-        #         pt.plot([inc, inc], [0, 1], '-', color=(.85,)*3)
-        #     # pt.step(
-        #     #     confirm_incs, success_rates, '-o', where="post", color=(.75,)*3, label="Success Rate")
-        #     # pt.plot(con.ema_history, '-', color=(0,)*3, label="EMA")
-        #     if cube_str == "pocket":
-        #         pt.plot(range(0,len(con.ema_history),1000), con.ema_history[::1000], '-', color=(.3,)*3, label="EMA")
-        #     else:
-        #         pt.plot(con.ema_history, '-', color=(.3,)*3, label="EMA")
-        #     pt.plot(confirm_incs, success_rates, '-', color=(0,)*3, label="Success Rate")
-        #     pt.legend(fontsize=10, loc='lower right')
-        #     # pt.plot([con.num_incs - tree_size]*2, [0, 1], 'k--')
-        #     pt.ylabel("Correct")
-        #     pt.xlabel("Number of incorporations")
-        #     pt.yticks([0, 0.5, 1.0])
-        #     pt.tight_layout()
-        #     if rep == 0: pt.savefig(f"rcons_{dump_base}_{rep}.pdf")
-        #     pt.show()
-        #     pt.close()
-
-        # show augment incs
-        pt.figure(figsize=(3.5, 1.5))
+        # run times and rule table sizes
+        all_run_times, all_rule_counts, all_inc_counts = [], [], []
         for rep in range(num_reps):
+            print(f"loading {rep}")
             with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
                 (con, unmaxed, total_time, num_rules) = pk.load(f)
             with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
                 (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
+            
+            print(f"done. {total_time/60:.2f}min runtime, {num_rules} rules")
+            all_run_times.append(total_time)
+            all_rule_counts.append(num_rules)
+            all_inc_counts.append(con.num_incs)
 
-            augment_incs = np.array(con.augment_incs)
-            diffs = augment_incs[1:] - augment_incs[:-1]
-            # pt.plot(diffs)
-            pt.plot(np.log(diffs))
-    
-            # pt.plot(con.augment_incs)
-            # pt.plot(np.log(con.augment_incs), 'k-')
+        print(f"Avg run time: {np.mean(all_run_times)/60} +/- {np.std(all_run_times)/60} min")
+        print(f"Avg num rule: {np.mean(all_rule_counts)} +/- {np.std(all_rule_counts)} of {tree_size} ({np.mean(all_rule_counts)/tree_size*100:.2f}\%)")
+        print(f"Avg num incs: {np.mean(all_inc_counts)} +/- {np.std(all_inc_counts)} incs")
 
+        # show one representative cons run
+        buckets = 1000000
+        augment_indicator = np.zeros(con.num_incs + buckets - (con.num_incs % buckets))
+        augment_indicator[con.augment_incs] = 1
+        augment_density = augment_indicator.reshape((buckets, -1)).mean(axis=1)
+        success_rates = tuple(count / tree_size for count in success_counts)
+        pt.figure(figsize=(3.5, 1.5))
+        pt.plot(np.linspace(0, con.num_incs, buckets), augment_density, '-', color=(.5,)*3, label="Modification")
+        pt.plot(confirm_incs, success_rates, 'ko-', label="Correctness")
+        pt.xlabel("Incorporation")
+        pt.ylabel("Rate")
+        pt.legend(loc='center right')
+        pt.tight_layout()
+        pt.savefig(f"rcons_{dump_base}_{rep}.pdf", bbox_inches='tight')
         pt.show()
+
+        # convergence histograms
+        pt.figure(figsize=(3.5, 1.5))
+        pt.subplot(1,3,1)
+        pt.hist(np.array(all_inc_counts)/10**7, color=(1,)*3, ec='k', rwidth=.75, align="left")
+        pt.xlabel("Incs (10M)")
+        pt.ylabel("Count")
+        pt.ylim([0, 20])
+        pt.subplot(1,3,2)
+        pt.hist(np.array(all_run_times)/60, color=(1,)*3, ec='k', rwidth=.75, align="left")
+        pt.xlabel("Time (min)")
+        pt.ylim([0, 20])
+        pt.yticks([])
+        pt.subplot(1,3,3)
+        pt.hist((np.array(all_rule_counts)/10**5).round(1), color=(1,)*3, ec='k', rwidth=.75, align="left")
+        pt.xlabel("Rules (100K)")
+        pt.ylim([0, 20])
+        pt.yticks([])
+        pt.tight_layout()
+        pt.savefig("rcons_%s_hist.pdf" % cube_str, bbox_inches='tight')
+        pt.show()
+        
+
+        # data = []
+        # varphi_stops, varphi_threshes = [], []
+        # all_success_rates, all_emas = [], []
+        # # for rep in range(num_repetitions):        
+        # for rep in range(len(glob.glob(os.path.join(dump_dir, dump_base + "_*_con.pkl")))):
+        # # for rep in range(2):
+        #     print(f"loading {rep}")
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
+        #         (con, unmaxed, total_time, num_rules) = pk.load(f)
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
+        #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
+
+        #     print(f"processing {rep}")
+        #     data.append(confirm_incs[-1])
+            
+        #     thresh = .99
+        #     near_inc = np.argmax([ema > thresh for ema in con.ema_history])
+        #     near_aug = np.argmax([inc > near_inc for inc in confirm_incs]) - 1
+        #     if con.ema_history[near_inc] > thresh:
+        #         varphi_stops.append(confirm_incs[near_aug])
+        #         varphi_threshes.append(con.ema_history[near_inc])
+        #     else:
+        #         print(rep, max(con.ema_history), con.ema_history[near_inc])
+            
+        #     all_success_rates += [count / tree_size for count in success_counts]
+        #     all_emas += emas
+
+        # fig = pt.figure(figsize=(3.5, 3))
+        # gs = fig.add_gridspec(2,2)
+        # ax = fig.add_subplot(gs[0,:])
+        # # pt.hist(data, bins = np.arange(0,max(data),500), color=(1,)*3, ec='k', rwidth=.75, align="left")
+        # pt.hist(data, color=(1,)*3, ec='k', rwidth=.75, align="left")
+        # pt.xlabel("Convergence Incs")
+        # pt.ylabel("Frequency")
+
+        # ax = fig.add_subplot(gs[1,0])
+        # pt.plot(varphi_stops, varphi_threshes, 'k.')
+        # pt.xlabel("0.99 Convergence Time")
+        # pt.ylabel("EMA")
+        # # pt.xticks([0, 5000])
+
+        # ax = fig.add_subplot(gs[1,1])
+        # # idx = np.random.permutation(len(all_emas))[:1000]
+        # # pt.plot(np.array(all_success_rates)[idx], np.array(all_emas)[idx], 'k.')
+        # pt.plot(all_success_rates, all_emas, 'k.')
+        # pt.xlabel("Correctness")
+        # pt.ylabel("EMA")
+
+        # pt.tight_layout()
+        # pt.savefig("rcons_%s_hist.pdf" % cube_str)
+        # pt.show()
+
+
+        # # show augment incs
+        # pt.figure(figsize=(3.5, 1.5))
+        # for rep in range(num_reps):
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
+        #         (con, unmaxed, total_time, num_rules) = pk.load(f)
+        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
+        #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
+
+        #     augment_incs = np.array(con.augment_incs)
+        #     diffs = augment_incs[1:] - augment_incs[:-1]
+        #     # pt.plot(diffs)
+        #     pt.plot(np.log(diffs))
+    
+        #     # pt.plot(con.augment_incs)
+        #     # pt.plot(np.log(con.augment_incs), 'k-')
+
+        # pt.show()
 
         # # show one cons run with simple averaging
         # for rep in range(num_repetitions):
@@ -278,56 +352,4 @@ if __name__ == "__main__":
         #     pt.show()
         #     pt.close()
 
-        # # convergence histograms
-        # data = []
-        # varphi_stops, varphi_threshes = [], []
-        # all_success_rates, all_emas = [], []
-        # # for rep in range(num_repetitions):        
-        # for rep in range(len(glob.glob(os.path.join(dump_dir, dump_base + "_*_con.pkl")))):
-        # # for rep in range(2):
-        #     print(f"loading {rep}")
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_con.pkl"), "rb") as f:
-        #         (con, unmaxed, total_time, num_rules) = pk.load(f)
-        #     with open(os.path.join(dump_dir, dump_base + f"_{rep}_cnf.pkl"), "rb") as f:
-        #         (confirm_incs, confirm_times, success_counts, corrects, rule_counts, emas, tree_size) = pk.load(f)
-
-        #     print(f"processing {rep}")
-        #     data.append(confirm_incs[-1])
-            
-        #     thresh = .99
-        #     near_inc = np.argmax([ema > thresh for ema in con.ema_history])
-        #     near_aug = np.argmax([inc > near_inc for inc in confirm_incs]) - 1
-        #     if con.ema_history[near_inc] > thresh:
-        #         varphi_stops.append(confirm_incs[near_aug])
-        #         varphi_threshes.append(con.ema_history[near_inc])
-        #     else:
-        #         print(rep, max(con.ema_history), con.ema_history[near_inc])
-            
-        #     all_success_rates += [count / tree_size for count in success_counts]
-        #     all_emas += emas
-
-        # fig = pt.figure(figsize=(3.5, 3))
-        # gs = fig.add_gridspec(2,2)
-        # ax = fig.add_subplot(gs[0,:])
-        # # pt.hist(data, bins = np.arange(0,max(data),500), color=(1,)*3, ec='k', rwidth=.75, align="left")
-        # pt.hist(data, color=(1,)*3, ec='k', rwidth=.75, align="left")
-        # pt.xlabel("Convergence Incs")
-        # pt.ylabel("Frequency")
-
-        # ax = fig.add_subplot(gs[1,0])
-        # pt.plot(varphi_stops, varphi_threshes, 'k.')
-        # pt.xlabel("0.99 Convergence Time")
-        # pt.ylabel("EMA")
-        # # pt.xticks([0, 5000])
-
-        # ax = fig.add_subplot(gs[1,1])
-        # # idx = np.random.permutation(len(all_emas))[:1000]
-        # # pt.plot(np.array(all_success_rates)[idx], np.array(all_emas)[idx], 'k.')
-        # pt.plot(all_success_rates, all_emas, 'k.')
-        # pt.xlabel("Correctness")
-        # pt.ylabel("EMA")
-
-        # pt.tight_layout()
-        # pt.savefig("rcons_%s_hist.pdf" % cube_str)
-        # pt.show()
             
