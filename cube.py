@@ -11,7 +11,7 @@ import matplotlib.pyplot as pt
 from matplotlib.patches import Polygon
 
 # Set up color enum and rgb tuples
-_R, _G, _B, _W, _Y, _O = range(1,7)
+_R, _G, _B, _W, _Y, _O, _K = range(1,8)
 _colors = {
     _R: (1.0, 0.0, 0.0), # red
     _G: (0.0, 1.0, 0.0), # green
@@ -19,6 +19,7 @@ _colors = {
     _W: (1.0, 1.0, 1.0), # white
     _Y: (1.0, 1.0, 0.0), # yellow
     _O: (1.0, 0.6, 0.0), # orange
+    _K: (0.0, 0.0, 0.0), # black
 }
 
 class CubeDomain:
@@ -245,10 +246,8 @@ class CubeDomain:
     def reverse(self, actions):
         return [(axis, plane, -twists % 4) for (axis, plane, twists) in reversed(actions)]
 
-    def superflip_path(self):
-        # from https://www.cube20.org
-        path = "R L U2 F U' D F2 R2 B2 L U2 F' B' U R2 D F2 U R2 U"
-        action_map = {
+    def get_action_map(self):
+        return {
             "U": (1, 0, 1),
             "D": (1, self.N-1, 3),
             "L": (2, self.N-1, 3),
@@ -268,6 +267,11 @@ class CubeDomain:
             "F'": (0, 0, 3),
             "B'": (0, self.N-1, 1),
         }
+
+    def superflip_path(self):
+        # from https://www.cube20.org
+        path = "R L U2 F U' D F2 R2 B2 L U2 F' B' U R2 D F2 U R2 U"
+        action_map = self.get_action_map()
         return [action_map[a] for a in path.split(" ")]
 
     def random_state(self, scramble_length, rng):

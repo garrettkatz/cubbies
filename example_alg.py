@@ -6,7 +6,8 @@ import matplotlib.patches as mp
 
 from matplotlib import rcParams
 rcParams['font.family'] = 'serif'
-rcParams['font.size'] = 18
+# rcParams['font.size'] = 18
+rcParams['font.size'] = 36 # for presentation
 rcParams['text.usetex'] = True
 rcParams['text.latex.preamble'] = r'\boldmath'
 
@@ -22,7 +23,8 @@ actions = [
 state = domain.execute(actions, domain.solved_state())
 states = domain.intermediate_states(domain.reverse(actions), state)
 
-pt.figure(figsize=(6, 3))
+# pt.figure(figsize=(6, 3))
+pt.figure(figsize=(12, 6)) # for presentation
 ax = pt.gca()
 
 for s, state in enumerate(states):
@@ -66,5 +68,6 @@ for n,s in enumerate([0, 3]):
 ax.axis("equal")
 ax.axis('off')
 pt.tight_layout()
-pt.savefig("example_alg.pdf")
+# pt.savefig("example_alg.pdf")
+pt.savefig("example_alg.png") # for presentation
 pt.show()
