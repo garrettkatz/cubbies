@@ -1,5 +1,39 @@
 import numpy as np
 
+class NonScrambler:
+
+    def __init__(self, domain, tree, max_actions=None):
+        self.domain = domain
+        self.tree = tree
+        self.inc = 0
+
+    def next_instance(self):
+
+        # get next instance index (wrap around with mod)
+        i = self.inc % self.tree.size()
+
+        # new pass when instance cycles back to first state
+        new_pass = (i == 0)
+                
+        # update inc counter
+        self.inc += 1
+
+        # get current state and path
+        s0 = self.domain.solved_state()[self.tree.permutations()[i]]
+        a = self.domain.reverse(self.tree.paths()[i])
+        s = [s0] + self.domain.intermediate_states(a, s0)
+
+        # return scramble and pass status
+        return new_pass, (s, a)
+
+    def rewind(self, inc):
+        # up to and including inc
+
+        # reset inc
+        self.inc = inc+1
+        
+        return self
+
 class FolkScrambler:
 
     def __init__(self, domain, tree, max_actions):

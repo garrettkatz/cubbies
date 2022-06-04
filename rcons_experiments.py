@@ -6,7 +6,7 @@ if __name__ == "__main__":
     import pickle as pk
     from cube import CubeDomain
 
-    do_cons = False
+    do_cons = True
     showresults = True
     confirm = False
 
@@ -20,17 +20,19 @@ if __name__ == "__main__":
 
     # cube_str = "s120"
     # num_confirm_incs = 1000
-    # num_repetitions = 1
+    # num_repetitions = 10
 
     # cube_str = "s5040"
     # num_confirm_incs = 50
-    # num_repetitions = 1
+    # num_repetitions = 5
 
     # cube_str = "s29k"
+    # num_confirm_incs = 50
+    # num_repetitions = 2
 
     cube_str = "pocket" # can be "s120", "s5040", "s29k", or "pocket"
     num_confirm_incs = 10
-    num_repetitions = 30
+    num_repetitions = 1
 
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
@@ -55,7 +57,7 @@ if __name__ == "__main__":
 
         from time import perf_counter
         from constructor import Constructor
-        from scramblers import AllScrambler, FolkScrambler
+        from scramblers import AllScrambler, FolkScrambler, NonScrambler
 
         if not os.path.exists(dump_dir): os.mkdir(dump_dir)
 
@@ -66,7 +68,8 @@ if __name__ == "__main__":
                 start = perf_counter()
                 verbose_prefix = f"rep {rep} of {num_repetitions} rcons: " if verbose else None
             
-                scrambler = AllScrambler(domain, tree)
+                # scrambler = AllScrambler(domain, tree)
+                scrambler = NonScrambler(domain, tree)
                 mdb = Constructor.init_macro_database(domain, max_rules)
                 con = Constructor(alg, max_actions, γ, ema_threshold)
                 unmaxed = con.run_passes(mdb, scrambler, verbose_prefix)
