@@ -24,25 +24,29 @@ state = domain.execute(actions, domain.solved_state())
 states = domain.intermediate_states(domain.reverse(actions), state)
 
 # pt.figure(figsize=(6, 3))
+# pt.figure(figsize=(12, 6)) # for presentation
 pt.figure(figsize=(12, 6)) # for presentation
 ax = pt.gca()
 
+dx = 9
+dr = dx/3
+
 for s, state in enumerate(states):
 
-    domain.render(state, ax, x0=s*9, y0=0, text=False)
+    domain.render(state, ax, x0=s*dx, y0=0, text=False)
     if s + 1 < len(states):
         ax.add_patch(mp.FancyArrow(
-            s*9 + 3, 0, 3, 0, color='k', length_includes_head=True,
+            s*dx + dr, 0, dr, 0, color='k', length_includes_head=True,
             head_width=1, head_length=1,
             alpha = 1))
 
 s = 2
 for a,action in [(-5, (1,1,1)), (5, (2,1,1))]:
-    domain.render(domain.perform(action, states[s]), ax, x0=(s+1)*9 - 3, y0=a, text=False)
+    domain.render(domain.perform(action, states[s]), ax, x0=(s+1)*dx - dr, y0=a, text=False)
     ax.add_patch(mp.Circle(
-        ((s+1)*9 - 3, a), 3, color='w', alpha = .75))
+        ((s+1)*dx - dr, a), dr, color='w', alpha = .75))
     ax.add_patch(mp.FancyArrow(
-        s*9 + 3, 0, 2, .6*a, color='k', length_includes_head=True,
+        s*dx + dr, 0, 2, .6*a, color='k', length_includes_head=True,
         head_width=1, head_length=1,
         alpha = .25))
 
@@ -62,8 +66,8 @@ ax.text(53, 3, "$s^*$")
 import numpy as np
 for n,s in enumerate([0, 3]):
     w = (np.random.rand(*states[s].shape) < .5)
-    domain.render(states[s]*(1-w), ax, x0=s*9, y0=-10, text=False)
-    ax.text(s*9 + 3, -11, r"$S_{r_%d} \vee W_{r_%d}$" % (n,n))
+    domain.render(states[s]*(1-w), ax, x0=s*dx, y0=-10, text=False)
+    ax.text(s*dx + 3, -11, r"$S_{r_%d} \vee W_{r_%d}$" % (n,n))
 
 ax.axis("equal")
 ax.axis('off')
