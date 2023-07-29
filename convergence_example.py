@@ -5,7 +5,7 @@ import pickle as pk
 
 # dump_base = "N2pocket_D11_M1_cn0_0"
 # dump_base = "N2s29k_D14_M1_cn0_0"
-dump_base = "N2s120_D11_M1_cn0_29"
+dump_base = "N2s120_D11_M1_cn0_9"
 
 with open(f"rce/{dump_base}_mdb.pkl", "rb") as f:
     mdb = pk.load(f)
@@ -49,7 +49,7 @@ pt.subplot(2,1,2)
 pt.plot(con.augment_incs + [con.num_incs], num_wild, 'k-')
 pt.plot(con.augment_incs + [con.num_incs], num_rule * domain.state_size(), 'k:')
 # pt.xlim([con.augment_incs[I], con.num_incs])
-pt.ylabel("Wildcards")
+pt.ylabel("Wildcards | Total")
 pt.xlabel("Incorporations")
 pt.tight_layout()
 pt.show()

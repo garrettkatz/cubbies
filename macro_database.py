@@ -138,7 +138,10 @@ class MacroDatabase:
             elif node.links[value].value != value:
                 self.tame(node, k, tamed=added)
                 node.links[value] = PrefixTreeNode(child_bound, value, added)
+
             self.wildcards[r,k] = node.is_wild()
+            self.tamed[r,k] = node.tamed
+
             node = node.links[value]
         node.rule = r
 

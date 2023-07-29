@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
     do_cons = True
     showresults = True
-    confirm = False
+    confirm = True
 
     γ = 0.99
     ema_threshold = 1.1
@@ -18,17 +18,17 @@ if __name__ == "__main__":
 
     verbose = True
 
-    # cube_str = "s120"
-    # num_confirm_incs = 1000
-    # num_repetitions = 10
+    cube_str = "s120"
+    num_confirm_incs = 1000
+    num_repetitions = 10
 
-    # cube_str = "s5040"
-    # num_confirm_incs = 50
-    # num_repetitions = 5
+    cube_str = "s5040"
+    num_confirm_incs = 50
+    num_repetitions = 5
 
-    # cube_str = "s29k"
-    # num_confirm_incs = 50
-    # num_repetitions = 2
+    cube_str = "s29k"
+    num_confirm_incs = 50
+    num_repetitions = 2
 
     cube_str = "pocket" # can be "s120", "s5040", "s29k", or "pocket"
     num_confirm_incs = 10
