@@ -44,7 +44,8 @@ print(mdb.num_rules)
 
 fig = pt.figure(figsize=(14,8))
 ax = pt.gca()
-for i,r in enumerate(R):
+# for i,r in enumerate(R):
+for i,r in enumerate(range(min(mdb.num_rules, 27))):
     domain.render(mdb.prototypes[r] * (1 - mdb.wildcards[r]), ax, x0=0, y0=-4*i, text=False)
     pt.text(3, -4*i-.75, ",".join([action_map[a] for a in mdb.macros[r]]))
     domain.render((1 - mdb.wildcards[r]) * cube._K, ax, x0=-7, y0=-4*i, text=False)

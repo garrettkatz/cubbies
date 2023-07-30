@@ -46,7 +46,8 @@ class Constructor:
             if result == False and mdb.num_rules < mdb.max_rules:
                 ϕ = False
                 τ = self.make_τ(mdb, s)
-                (t, r) = τ[np.random.choice(len(τ))]
+                (t, r) = τ[np.random.choice(len(τ))] # ~3-5 10M incs * 10**-5 | .003-.005 | .023
+                # (t, r) = τ[0] # ~3.5-4.5 10M incs * 10**-5 | .003-.0045 | .023-.029
                 mdb.add_rule(s[0], a[:t], t + mdb.costs[r], added=self.num_incs)
     
             elif result == False and mdb.num_rules == mdb.max_rules:

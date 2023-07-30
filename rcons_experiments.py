@@ -30,9 +30,9 @@ if __name__ == "__main__":
     num_confirm_incs = 50
     num_repetitions = 2
 
-    cube_str = "pocket" # can be "s120", "s5040", "s29k", or "pocket"
-    num_confirm_incs = 10
-    num_repetitions = 1
+    # cube_str = "pocket" # can be "s120", "s5040", "s29k", or "pocket"
+    # num_confirm_incs = 10
+    # num_repetitions = 1
 
     cube_size, valid_actions, tree_depth = CubeDomain.parameters(cube_str)
 
